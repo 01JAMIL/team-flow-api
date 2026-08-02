@@ -1,0 +1,11 @@
+.idea/
+.env
+
+# Build output
+bin/
+
+# Coverage
+*.out
+
+# macOS
+.DS_Store
