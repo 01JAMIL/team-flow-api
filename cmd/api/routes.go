@@ -1,6 +1,8 @@
 package main
 
 import (
+	repo "gin-api-1/internal/adapters/postgresql/sqlc"
+	"gin-api-1/internal/auth"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,6 +11,9 @@ import (
 func (app *application) routes() http.Handler {
 	r := gin.Default()
 
+	authService := auth.NewAuthService(repo.New(app.db), app.db)
+	authHandler := auth.NewAuthHandler(authService)
+
 	v1 := r.Group("/api/v1")
 	{
 		v1.GET("/health", func(c *gin.Context) {
@@ -16,6 +21,8 @@ func (app *application) routes() http.Handler {
 				"message": "OK",
 			})
 		})
+
+		v1.POST("/auth/register", authHandler.Register)
 	}
 
 	return r

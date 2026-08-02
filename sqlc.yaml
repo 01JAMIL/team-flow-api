@@ -2,7 +2,7 @@ version: "2"
 sql:
   - engine: "postgresql"
     queries: "./internal/adapters/postgresql/sqlc/queries.sql"
-    schema: "${GOOSE_MIGRATION_DIR}"
+    schema: "./internal/adapters/postgresql/migrations"
     gen:
       go:
         package: "repo"
