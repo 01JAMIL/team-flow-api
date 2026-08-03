@@ -1,11 +1,13 @@
 package workspace
 
 import (
+	"errors"
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	"gin-api-1/internal/auth"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -17,6 +19,53 @@ func NewWorkspaceHandler(service Service) *handler {
 	return &handler{
 		service: service,
 	}
+}
+
+func (h *handler) CreateWorkspace(c *gin.Context) {
+	loggedUser := c.MustGet("user").(auth.UserResponse)
+
+	var payload createWorkspacePayload
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		if validationErrors, ok := errors.AsType[validator.ValidationErrors](err); ok {
+			errs := make(map[string]string)
+
+			for _, fieldErr := range validationErrors {
+				errs[fieldErr.Field()] = fieldErr.Error()
+			}
+
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    "VALIDATION_ERROR",
+				"message": "Validation failed",
+				"errors":  errs,
+			})
+			return
+		}
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"errors": err.Error(),
+		})
+		return
+	}
+
+	workspace, err := h.service.CreateWorkspace(c, createWorkspacePayload{
+		WorkspaceName: payload.WorkspaceName,
+		Description:   payload.Description,
+		UserID:        loggedUser.ID,
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    "FAILED_TO_CREATE_WORKSPACE",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message":   "Workspace created successfully",
+		"workspace": workspace,
+	})
 }
 
 func (h *handler) GetUserWorkspaceByID(c *gin.Context) {

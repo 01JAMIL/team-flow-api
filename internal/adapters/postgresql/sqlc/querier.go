@@ -11,12 +11,11 @@ import (
 )
 
 type Querier interface {
+	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserById(ctx context.Context, id string) (User, error)
-	// Workspace
 	GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspaceByIDParams) (Workspace, error)
 	GetUserWorkspaces(ctx context.Context, userID pgtype.Text) ([]Workspace, error)
-	// Authentication
 	Register(ctx context.Context, arg RegisterParams) (User, error)
 }
 

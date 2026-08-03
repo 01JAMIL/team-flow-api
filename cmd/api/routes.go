@@ -39,6 +39,7 @@ func (app *application) routes() http.Handler {
 		/* Workspaces routes */
 		authGroup.GET("/workspaces", workspaceHandler.GetUserWorkspaces)
 		authGroup.GET("/workspaces/:id", workspaceHandler.GetUserWorkspaceByID)
+		authGroup.POST("/workspaces", workspaceHandler.CreateWorkspace)
 	}
 
 	return r

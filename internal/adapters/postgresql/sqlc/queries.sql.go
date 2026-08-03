@@ -11,6 +11,37 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createWorkspace = `-- name: CreateWorkspace :one
+INSERT INTO workspaces (id, workspace_name, description, user_id)
+VALUES ($1, $2, $3, $4) RETURNING id, workspace_name, description, user_id, created_at, updated_at
+`
+
+type CreateWorkspaceParams struct {
+	ID            string      `json:"id"`
+	WorkspaceName string      `json:"workspace_name"`
+	Description   string      `json:"description"`
+	UserID        pgtype.Text `json:"user_id"`
+}
+
+func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error) {
+	row := q.db.QueryRow(ctx, createWorkspace,
+		arg.ID,
+		arg.WorkspaceName,
+		arg.Description,
+		arg.UserID,
+	)
+	var i Workspace
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceName,
+		&i.Description,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, first_name, last_name, email, password, created_at, updated_at
 FROM users
@@ -54,7 +85,6 @@ func (q *Queries) GetUserById(ctx context.Context, id string) (User, error) {
 }
 
 const getUserWorkspaceByID = `-- name: GetUserWorkspaceByID :one
-
 SELECT id, workspace_name, description, user_id, created_at, updated_at
 FROM workspaces
 WHERE user_id = $1
@@ -66,7 +96,6 @@ type GetUserWorkspaceByIDParams struct {
 	ID     string      `json:"id"`
 }
 
-// Workspace
 func (q *Queries) GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspaceByIDParams) (Workspace, error) {
 	row := q.db.QueryRow(ctx, getUserWorkspaceByID, arg.UserID, arg.ID)
 	var i Workspace
@@ -115,7 +144,6 @@ func (q *Queries) GetUserWorkspaces(ctx context.Context, userID pgtype.Text) ([]
 }
 
 const register = `-- name: Register :one
-
 INSERT INTO users (id, first_name, last_name, email, password)
 VALUES ($1, $2, $3, $4, $5) RETURNING id, first_name, last_name, email, password, created_at, updated_at
 `
@@ -128,7 +156,6 @@ type RegisterParams struct {
 	Password  string `json:"password"`
 }
 
-// Authentication
 func (q *Queries) Register(ctx context.Context, arg RegisterParams) (User, error) {
 	row := q.db.QueryRow(ctx, register,
 		arg.ID,

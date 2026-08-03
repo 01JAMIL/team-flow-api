@@ -1,5 +1,3 @@
-/* Authentication */
-
 -- name: Register :one
 INSERT INTO users (id, first_name, last_name, email, password)
 VALUES ($1, $2, $3, $4, $5) RETURNING *;
@@ -14,8 +12,6 @@ SELECT *
 FROM users
 WHERE email = $1;
 
-/* Workspace */
-
 -- name: GetUserWorkspaceByID :one
 SELECT *
 FROM workspaces
@@ -26,3 +22,7 @@ WHERE user_id = $1
 SELECT *
 FROM workspaces
 WHERE user_id = $1;
+
+-- name: CreateWorkspace :one
+INSERT INTO workspaces (id, workspace_name, description, user_id)
+VALUES ($1, $2, $3, $4) RETURNING *;
