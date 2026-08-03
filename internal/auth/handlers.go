@@ -44,20 +44,11 @@ func (h *handler) Register(c *gin.Context) {
 		return
 	}
 
-	_, err := h.service.GetUserByEmail(c, payload.Email)
-	if err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    "USER_ALREADY_EXISTS",
-			"message": "User with this email already exists",
-		})
-		return
-	}
-
 	user, err := h.service.Register(c, payload)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    "USER_CREATION_FAILED",
-			"message": "Failed to register user",
+			"message": err.Error(),
 		})
 		return
 	}
