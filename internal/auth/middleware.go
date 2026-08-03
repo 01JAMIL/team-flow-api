@@ -44,7 +44,8 @@ func AuthenticationMiddleware(service Service) gin.HandlerFunc {
 			})
 		}
 
-		c.Set("user", userResponse{
+		c.Set("user", UserResponse{
+			ID:        userID,
 			FirstName: user.FirstName,
 			LastName:  user.LastName,
 			Email:     user.Email,

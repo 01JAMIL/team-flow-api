@@ -100,7 +100,7 @@ func (h *handler) Login(c *gin.Context) {
 }
 
 func (h *handler) GetMe(c *gin.Context) {
-	user := c.MustGet("user").(userResponse)
+	user := c.MustGet("user").(UserResponse)
 	c.JSON(http.StatusOK, gin.H{
 		"message": "User retrieved successfully",
 		"user":    user,

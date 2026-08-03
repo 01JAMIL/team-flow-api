@@ -20,7 +20,8 @@ type loginPayload struct {
 	Password string `json:"password" binding:"required,min=8"`
 }
 
-type userResponse struct {
+type UserResponse struct {
+	ID        string             `json:"id"`
 	FirstName string             `json:"firstName"`
 	LastName  string             `json:"lastName"`
 	Email     string             `json:"email"`
@@ -28,6 +29,6 @@ type userResponse struct {
 	UpdatedAt pgtype.Timestamptz `json:"updatedAt"`
 }
 type authResponse struct {
-	User  userResponse `json:"user"`
+	User  UserResponse `json:"user"`
 	Token string       `json:"token"`
 }

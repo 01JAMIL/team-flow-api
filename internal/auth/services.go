@@ -69,7 +69,8 @@ func (s *svc) Register(ctx context.Context, payload registerPayload) (authRespon
 	}
 
 	return authResponse{
-		User: userResponse{
+		User: UserResponse{
+			ID:        user.ID,
 			FirstName: user.FirstName,
 			LastName:  user.LastName,
 			Email:     user.Email,
@@ -97,7 +98,8 @@ func (s *svc) Login(ctx context.Context, payload loginPayload) (authResponse, er
 	}
 
 	return authResponse{
-		User: userResponse{
+		User: UserResponse{
+			ID:        user.ID,
 			FirstName: user.FirstName,
 			LastName:  user.LastName,
 			Email:     user.Email,
