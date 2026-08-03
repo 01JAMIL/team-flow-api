@@ -98,3 +98,11 @@ func (h *handler) Login(c *gin.Context) {
 		"user":    user,
 	})
 }
+
+func (h *handler) GetMe(c *gin.Context) {
+	user := c.MustGet("user").(userResponse)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "User retrieved successfully",
+		"user":    user,
+	})
+}

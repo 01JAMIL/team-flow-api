@@ -29,14 +29,7 @@ func (app *application) routes() http.Handler {
 	authGroup := v1.Group("/")
 	authGroup.Use(auth.AuthenticationMiddleware(authService))
 	{
-		authGroup.GET("/workspaces", func(c *gin.Context) {
-
-			data := [4]string{"Workspace 1", "Workspace 2", "Workspace 3", "Workspace 4"}
-
-			c.JSON(http.StatusOK, gin.H{
-				"languages": data,
-			})
-		})
+		authGroup.GET("/auth/me", authHandler.GetMe)
 	}
 
 	return r
