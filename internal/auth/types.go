@@ -15,6 +15,11 @@ type registerPayload struct {
 	Password  string `json:"password" binding:"required,min=8"`
 }
 
+type loginPayload struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=8"`
+}
+
 type userResponse struct {
 	FirstName string             `json:"firstName"`
 	LastName  string             `json:"lastName"`

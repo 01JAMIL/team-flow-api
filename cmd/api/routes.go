@@ -23,6 +23,7 @@ func (app *application) routes() http.Handler {
 		})
 
 		v1.POST("/auth/register", authHandler.Register)
+		v1.POST("/auth/login", authHandler.Login)
 	}
 
 	return r

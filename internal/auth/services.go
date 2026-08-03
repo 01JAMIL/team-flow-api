@@ -13,6 +13,7 @@ type Service interface {
 	GetUserByEmail(ctx context.Context, email string) (repo.User, error)
 	GetUserById(ctx context.Context, id string) (repo.User, error)
 	Register(ctx context.Context, payload registerPayload) (authResponse, error)
+	Login(ctx context.Context, payload loginPayload) (authResponse, error)
 }
 
 type svc struct {
@@ -63,6 +64,34 @@ func (s *svc) Register(ctx context.Context, payload registerPayload) (authRespon
 
 	jwt, err := createToken(user)
 
+	if err != nil {
+		return authResponse{}, err
+	}
+
+	return authResponse{
+		User: userResponse{
+			FirstName: user.FirstName,
+			LastName:  user.LastName,
+			Email:     user.Email,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+		},
+		Token: jwt,
+	}, nil
+}
+
+func (s *svc) Login(ctx context.Context, payload loginPayload) (authResponse, error) {
+	user, err := s.repo.GetUserByEmail(ctx, payload.Email)
+	if err != nil {
+		return authResponse{}, err
+	}
+
+	isValidPassword := checkPasswordHash(payload.Password, user.Password)
+	if !isValidPassword {
+		return authResponse{}, errors.New("invalid password")
+	}
+
+	jwt, err := createToken(user)
 	if err != nil {
 		return authResponse{}, err
 	}
