@@ -26,3 +26,17 @@ WHERE user_id = $1;
 -- name: CreateWorkspace :one
 INSERT INTO workspaces (id, workspace_name, description, user_id)
 VALUES ($1, $2, $3, $4) RETURNING *;
+
+-- name: UpdateWorkspace :one
+UPDATE workspaces
+SET workspace_name = $3,
+    description    = $4,
+    updated_at     = now()
+WHERE id = $1
+  AND user_id = $2 RETURNING *;
+
+-- name: DeleteWorkspace :exec
+DELETE
+FROM workspaces
+WHERE id = $1
+  AND user_id = $2;

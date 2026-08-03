@@ -12,11 +12,13 @@ import (
 
 type Querier interface {
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
+	DeleteWorkspace(ctx context.Context, arg DeleteWorkspaceParams) error
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserById(ctx context.Context, id string) (User, error)
 	GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspaceByIDParams) (Workspace, error)
 	GetUserWorkspaces(ctx context.Context, userID pgtype.Text) ([]Workspace, error)
 	Register(ctx context.Context, arg RegisterParams) (User, error)
+	UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) (Workspace, error)
 }
 
 var _ Querier = (*Queries)(nil)

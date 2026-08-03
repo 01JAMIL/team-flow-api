@@ -40,6 +40,8 @@ func (app *application) routes() http.Handler {
 		authGroup.GET("/workspaces", workspaceHandler.GetUserWorkspaces)
 		authGroup.GET("/workspaces/:id", workspaceHandler.GetUserWorkspaceByID)
 		authGroup.POST("/workspaces", workspaceHandler.CreateWorkspace)
+		authGroup.PATCH("/workspaces/:id", workspaceHandler.UpdateWorkspace)
+		authGroup.DELETE("/workspaces/:id", workspaceHandler.DeleteWorkspace)
 	}
 
 	return r

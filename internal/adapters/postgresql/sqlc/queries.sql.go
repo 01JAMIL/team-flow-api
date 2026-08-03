@@ -42,6 +42,23 @@ func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams
 	return i, err
 }
 
+const deleteWorkspace = `-- name: DeleteWorkspace :exec
+DELETE
+FROM workspaces
+WHERE id = $1
+  AND user_id = $2
+`
+
+type DeleteWorkspaceParams struct {
+	ID     string      `json:"id"`
+	UserID pgtype.Text `json:"user_id"`
+}
+
+func (q *Queries) DeleteWorkspace(ctx context.Context, arg DeleteWorkspaceParams) error {
+	_, err := q.db.Exec(ctx, deleteWorkspace, arg.ID, arg.UserID)
+	return err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, first_name, last_name, email, password, created_at, updated_at
 FROM users
@@ -171,6 +188,41 @@ func (q *Queries) Register(ctx context.Context, arg RegisterParams) (User, error
 		&i.LastName,
 		&i.Email,
 		&i.Password,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateWorkspace = `-- name: UpdateWorkspace :one
+UPDATE workspaces
+SET workspace_name = $3,
+    description    = $4,
+    updated_at     = now()
+WHERE id = $1
+  AND user_id = $2 RETURNING id, workspace_name, description, user_id, created_at, updated_at
+`
+
+type UpdateWorkspaceParams struct {
+	ID            string      `json:"id"`
+	UserID        pgtype.Text `json:"user_id"`
+	WorkspaceName string      `json:"workspace_name"`
+	Description   string      `json:"description"`
+}
+
+func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) (Workspace, error) {
+	row := q.db.QueryRow(ctx, updateWorkspace,
+		arg.ID,
+		arg.UserID,
+		arg.WorkspaceName,
+		arg.Description,
+	)
+	var i Workspace
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceName,
+		&i.Description,
+		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

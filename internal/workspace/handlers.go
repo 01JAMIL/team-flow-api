@@ -114,3 +114,61 @@ func (h *handler) GetUserWorkspaces(c *gin.Context) {
 		"workspaces": workspaces,
 	})
 }
+
+func (h *handler) UpdateWorkspace(c *gin.Context) {
+	id := c.Param("id")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
+
+	var payload updateWorkspacePayload
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Invalid request payload",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	workspace, err := h.service.UpdateWorkspace(c, updateWorkspacePayload{
+		ID:            id,
+		UserID:        loggedUser.ID,
+		WorkspaceName: payload.WorkspaceName,
+		Description:   payload.Description,
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Failed to update workspace",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":   "Workspace updated successfully",
+		"workspace": workspace,
+	})
+}
+
+func (h *handler) DeleteWorkspace(c *gin.Context) {
+	id := c.Param("id")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
+	err := h.service.DeleteWorkspace(c, repo.DeleteWorkspaceParams{
+		ID: id,
+		UserID: pgtype.Text{
+			String: loggedUser.ID,
+			Valid:  true,
+		},
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Failed to delete workspace",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Workspace deleted successfully",
+	})
+}
