@@ -18,7 +18,7 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserById(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspaceByIDParams) (Workspace, error)
-	GetUserWorkspaces(ctx context.Context, userID pgtype.Text) ([]Workspace, error)
+	GetUserWorkspaces(ctx context.Context, arg GetUserWorkspacesParams) ([]GetUserWorkspacesRow, error)
 	GetWorkspaceById(ctx context.Context, id pgtype.UUID) (Workspace, error)
 	GetWorkspaceMembers(ctx context.Context, arg GetWorkspaceMembersParams) ([]GetWorkspaceMembersRow, error)
 	Register(ctx context.Context, arg RegisterParams) (User, error)

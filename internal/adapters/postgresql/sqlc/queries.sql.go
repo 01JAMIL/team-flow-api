@@ -183,21 +183,46 @@ func (q *Queries) GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspace
 }
 
 const getUserWorkspaces = `-- name: GetUserWorkspaces :many
-SELECT id, workspace_name, description, user_id, created_at, updated_at
+SELECT count(*) OVER () AS total_count,
+       id,
+       workspace_name,
+       description,
+       user_id,
+       created_at,
+       updated_at
 FROM workspaces
 WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
 `
 
-func (q *Queries) GetUserWorkspaces(ctx context.Context, userID pgtype.Text) ([]Workspace, error) {
-	rows, err := q.db.Query(ctx, getUserWorkspaces, userID)
+type GetUserWorkspacesParams struct {
+	UserID pgtype.Text `json:"user_id"`
+	Limit  int32       `json:"limit"`
+	Offset int32       `json:"offset"`
+}
+
+type GetUserWorkspacesRow struct {
+	TotalCount    int64              `json:"total_count"`
+	ID            pgtype.UUID        `json:"id"`
+	WorkspaceName string             `json:"workspace_name"`
+	Description   string             `json:"description"`
+	UserID        pgtype.Text        `json:"user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetUserWorkspaces(ctx context.Context, arg GetUserWorkspacesParams) ([]GetUserWorkspacesRow, error) {
+	rows, err := q.db.Query(ctx, getUserWorkspaces, arg.UserID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Workspace
+	var items []GetUserWorkspacesRow
 	for rows.Next() {
-		var i Workspace
+		var i GetUserWorkspacesRow
 		if err := rows.Scan(
+			&i.TotalCount,
 			&i.ID,
 			&i.WorkspaceName,
 			&i.Description,

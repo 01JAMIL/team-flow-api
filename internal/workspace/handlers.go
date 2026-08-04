@@ -5,6 +5,7 @@ import (
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	"gin-api-1/internal/auth"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -97,10 +98,24 @@ func (h *handler) GetUserWorkspaceByID(c *gin.Context) {
 
 func (h *handler) GetUserWorkspaces(c *gin.Context) {
 	loggedUser := c.MustGet("user").(auth.UserResponse)
-	workspaces, err := h.service.GetUserWorkspaces(c, pgtype.Text{
+
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	pageSize, err := strconv.Atoi(c.DefaultQuery("pageSize", strconv.Itoa(DefaultPageSize)))
+	if err != nil || pageSize < 1 {
+		pageSize = DefaultPageSize
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	response, err := h.service.GetUserWorkspaces(c, pgtype.Text{
 		String: loggedUser.ID,
 		Valid:  true,
-	})
+	}, page, pageSize)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -109,13 +124,7 @@ func (h *handler) GetUserWorkspaces(c *gin.Context) {
 		return
 	}
 
-	if workspaces == nil {
-		workspaces = []repo.Workspace{}
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"workspaces": workspaces,
-	})
+	c.JSON(http.StatusOK, response)
 }
 
 func (h *handler) UpdateWorkspace(c *gin.Context) {

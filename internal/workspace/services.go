@@ -13,7 +13,7 @@ import (
 type Service interface {
 	CreateWorkspace(ctx context.Context, payload createWorkspacePayload) (repo.Workspace, error)
 	GetUserWorkspaceByID(ctx context.Context, arg repo.GetUserWorkspaceByIDParams) (repo.Workspace, error)
-	GetUserWorkspaces(ctx context.Context, userID pgtype.Text) ([]repo.Workspace, error)
+	GetUserWorkspaces(ctx context.Context, userID pgtype.Text, page, pageSize int) (getUserWorkspacesResponse, error)
 	UpdateWorkspace(ctx context.Context, payload updateWorkspacePayload) (repo.Workspace, error)
 	DeleteWorkspace(ctx context.Context, arg repo.DeleteWorkspaceParams) error
 }
@@ -34,8 +34,48 @@ func (s *svc) GetUserWorkspaceByID(ctx context.Context, arg repo.GetUserWorkspac
 	return s.repo.GetUserWorkspaceByID(ctx, arg)
 }
 
-func (s *svc) GetUserWorkspaces(ctx context.Context, userID pgtype.Text) ([]repo.Workspace, error) {
-	return s.repo.GetUserWorkspaces(ctx, userID)
+func (s *svc) GetUserWorkspaces(ctx context.Context, userID pgtype.Text, page, pageSize int) (getUserWorkspacesResponse, error) {
+	rows, err := s.repo.GetUserWorkspaces(ctx, repo.GetUserWorkspacesParams{
+		UserID: userID,
+		Limit:  int32(pageSize),
+		Offset: int32((page - 1) * pageSize),
+	})
+	if err != nil {
+		return getUserWorkspacesResponse{}, err
+	}
+
+	workspaces := make([]workspaceResponse, 0, len(rows))
+
+	var total int64
+	if len(rows) > 0 {
+		total = rows[0].TotalCount
+	}
+
+	for _, row := range rows {
+		workspaces = append(workspaces, workspaceResponse{
+			ID:            row.ID.String(),
+			WorkspaceName: row.WorkspaceName,
+			Description:   row.Description,
+			UserID:        row.UserID.String,
+			CreatedAt:     row.CreatedAt,
+			UpdatedAt:     row.UpdatedAt,
+		})
+	}
+
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+
+	return getUserWorkspacesResponse{
+		Workspaces: workspaces,
+		Pagination: paginationResponse{
+			Page:       page,
+			PageSize:   pageSize,
+			Total:      total,
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (s *svc) CreateWorkspace(ctx context.Context, payload createWorkspacePayload) (repo.Workspace, error) {

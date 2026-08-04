@@ -19,9 +19,17 @@ WHERE user_id = $1
   AND id = $2;
 
 -- name: GetUserWorkspaces :many
-SELECT *
+SELECT count(*) OVER () AS total_count,
+       id,
+       workspace_name,
+       description,
+       user_id,
+       created_at,
+       updated_at
 FROM workspaces
-WHERE user_id = $1;
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
 
 -- name: CreateWorkspace :one
 INSERT INTO workspaces (id, workspace_name, description, user_id)
