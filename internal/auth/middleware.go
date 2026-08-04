@@ -38,10 +38,13 @@ func AuthenticationMiddleware(service Service) gin.HandlerFunc {
 
 		userID := claims.Subject
 		user, err := service.GetUserById(c.Request.Context(), userID)
+
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": "You are not authorized to access this resource",
 			})
+			c.Abort()
+			return
 		}
 
 		c.Set("user", UserResponse{

@@ -15,7 +15,7 @@ var jwtSecret string = env.GetEnvString("JWT_SECRET", "secret_123456")
 func createToken(user repo.User) (string, error) {
 	claims := jwtClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   user.ID,
+			Subject:   user.ID.String(),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},

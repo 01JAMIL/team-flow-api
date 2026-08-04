@@ -9,7 +9,7 @@ import (
 )
 
 type User struct {
-	ID        string             `json:"id"`
+	ID        pgtype.UUID        `json:"id"`
 	FirstName string             `json:"first_name"`
 	LastName  string             `json:"last_name"`
 	Email     string             `json:"email"`
@@ -19,10 +19,18 @@ type User struct {
 }
 
 type Workspace struct {
-	ID            string             `json:"id"`
+	ID            pgtype.UUID        `json:"id"`
 	WorkspaceName string             `json:"workspace_name"`
 	Description   string             `json:"description"`
 	UserID        pgtype.Text        `json:"user_id"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WorkspaceMember struct {
+	ID          pgtype.UUID        `json:"id"`
+	UserID      pgtype.Text        `json:"user_id"`
+	WorkspaceID pgtype.Text        `json:"workspace_id"`
+	UserRole    string             `json:"user_role"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }

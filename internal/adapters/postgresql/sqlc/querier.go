@@ -11,12 +11,15 @@ import (
 )
 
 type Querier interface {
+	AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) (WorkspaceMember, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
 	DeleteWorkspace(ctx context.Context, arg DeleteWorkspaceParams) error
+	GetMemberFromWorkspace(ctx context.Context, arg GetMemberFromWorkspaceParams) (WorkspaceMember, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
-	GetUserById(ctx context.Context, id string) (User, error)
+	GetUserById(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspaceByIDParams) (Workspace, error)
 	GetUserWorkspaces(ctx context.Context, userID pgtype.Text) ([]Workspace, error)
+	GetWorkspaceById(ctx context.Context, id pgtype.UUID) (Workspace, error)
 	Register(ctx context.Context, arg RegisterParams) (User, error)
 	UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) (Workspace, error)
 }

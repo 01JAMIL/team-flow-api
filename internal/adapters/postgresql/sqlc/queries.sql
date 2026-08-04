@@ -40,3 +40,18 @@ DELETE
 FROM workspaces
 WHERE id = $1
   AND user_id = $2;
+
+-- name: GetWorkspaceById :one
+SELECT *
+FROM workspaces
+WHERE id = $1;
+
+-- name: AddWorkspaceMember :one
+INSERT INTO workspace_members (id, user_id, workspace_id, user_role)
+VALUES ($1, $2, $3, $4) RETURNING *;
+
+-- name: GetMemberFromWorkspace :one
+SELECT *
+FROM workspace_members
+WHERE user_id = $1
+  AND workspace_id = $2;

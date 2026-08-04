@@ -4,6 +4,7 @@ import (
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	"gin-api-1/internal/auth"
 	"gin-api-1/internal/workspace"
+	"gin-api-1/internal/workspacemembers"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -17,6 +18,9 @@ func (app *application) routes() http.Handler {
 
 	workspaceService := workspace.NewWorkspaceService(repo.New(app.db), app.db)
 	workspaceHandler := workspace.NewWorkspaceHandler(workspaceService)
+
+	workspaceMembersService := workspacemembers.NewWorkspaceMembersService(repo.New(app.db), app.db)
+	workspaceMembersHandler := workspacemembers.NewWorkspaceMembersHandler(workspaceMembersService)
 
 	/* Public routes */
 	v1 := r.Group("/api/v1")
@@ -42,6 +46,9 @@ func (app *application) routes() http.Handler {
 		authGroup.POST("/workspaces", workspaceHandler.CreateWorkspace)
 		authGroup.PATCH("/workspaces/:id", workspaceHandler.UpdateWorkspace)
 		authGroup.DELETE("/workspaces/:id", workspaceHandler.DeleteWorkspace)
+
+		/* Workspace Members routes */
+		authGroup.POST("/workspaces/:id/members", workspaceMembersHandler.AddWorkspaceMember)
 	}
 
 	return r

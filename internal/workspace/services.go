@@ -39,10 +39,10 @@ func (s *svc) GetUserWorkspaces(ctx context.Context, userID pgtype.Text) ([]repo
 }
 
 func (s *svc) CreateWorkspace(ctx context.Context, payload createWorkspacePayload) (repo.Workspace, error) {
-	pk := uuid.New().String()
+	pk := uuid.New()
 
 	return s.repo.CreateWorkspace(ctx, repo.CreateWorkspaceParams{
-		ID:            pk,
+		ID:            pgtype.UUID{Bytes: pk, Valid: true},
 		WorkspaceName: payload.WorkspaceName,
 		Description:   payload.Description,
 		UserID: pgtype.Text{
@@ -54,8 +54,14 @@ func (s *svc) CreateWorkspace(ctx context.Context, payload createWorkspacePayloa
 
 func (s *svc) UpdateWorkspace(ctx context.Context, payload updateWorkspacePayload) (repo.Workspace, error) {
 
-	_, err := s.repo.GetUserWorkspaceByID(ctx, repo.GetUserWorkspaceByIDParams{
-		ID: payload.ID,
+	id, err := uuid.Parse(payload.ID)
+
+	if err != nil {
+		return repo.Workspace{}, err
+	}
+
+	_, err = s.repo.GetUserWorkspaceByID(ctx, repo.GetUserWorkspaceByIDParams{
+		ID: pgtype.UUID{Bytes: id, Valid: true},
 		UserID: pgtype.Text{
 			String: payload.UserID,
 			Valid:  true,
@@ -67,7 +73,7 @@ func (s *svc) UpdateWorkspace(ctx context.Context, payload updateWorkspacePayloa
 	}
 
 	return s.repo.UpdateWorkspace(ctx, repo.UpdateWorkspaceParams{
-		ID: payload.ID,
+		ID: pgtype.UUID{Bytes: id, Valid: true},
 		UserID: pgtype.Text{
 			String: payload.UserID,
 			Valid:  true,

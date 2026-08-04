@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Service interface {
@@ -33,7 +34,14 @@ func (s *svc) GetUserByEmail(ctx context.Context, email string) (repo.User, erro
 }
 
 func (s *svc) GetUserById(ctx context.Context, id string) (repo.User, error) {
-	return s.repo.GetUserById(ctx, id)
+	value, err := uuid.Parse(id)
+	if err != nil {
+		return repo.User{}, err
+	}
+	return s.repo.GetUserById(ctx, pgtype.UUID{
+		Bytes: value,
+		Valid: true,
+	})
 }
 
 func (s *svc) Register(ctx context.Context, payload registerPayload) (authResponse, error) {
@@ -43,7 +51,7 @@ func (s *svc) Register(ctx context.Context, payload registerPayload) (authRespon
 		return authResponse{}, errors.New("user with this email already exists")
 	}
 
-	pk := uuid.New().String()
+	pk := uuid.New()
 
 	hashedPassword, err := hashPassword(payload.Password)
 	if err != nil {
@@ -51,7 +59,10 @@ func (s *svc) Register(ctx context.Context, payload registerPayload) (authRespon
 	}
 
 	user, err := s.repo.Register(ctx, repo.RegisterParams{
-		ID:        pk,
+		ID: pgtype.UUID{
+			Bytes: pk,
+			Valid: true,
+		},
 		FirstName: payload.FirstName,
 		LastName:  payload.LastName,
 		Email:     payload.Email,
@@ -70,7 +81,7 @@ func (s *svc) Register(ctx context.Context, payload registerPayload) (authRespon
 
 	return authResponse{
 		User: UserResponse{
-			ID:        user.ID,
+			ID:        user.ID.String(),
 			FirstName: user.FirstName,
 			LastName:  user.LastName,
 			Email:     user.Email,
@@ -99,7 +110,7 @@ func (s *svc) Login(ctx context.Context, payload loginPayload) (authResponse, er
 
 	return authResponse{
 		User: UserResponse{
-			ID:        user.ID,
+			ID:        user.ID.String(),
 			FirstName: user.FirstName,
 			LastName:  user.LastName,
 			Email:     user.Email,

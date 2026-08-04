@@ -72,12 +72,15 @@ func (h *handler) GetUserWorkspaceByID(c *gin.Context) {
 	id := c.Param("id")
 	loggedUser := c.MustGet("user").(auth.UserResponse)
 
+	var pgUUID pgtype.UUID
+	copy(pgUUID.Bytes[:], id[:])
+
 	workspace, err := h.service.GetUserWorkspaceByID(c, repo.GetUserWorkspaceByIDParams{
 		UserID: pgtype.Text{
 			String: loggedUser.ID,
 			Valid:  true,
 		},
-		ID: id,
+		ID: pgUUID,
 	})
 
 	if err != nil {
@@ -152,8 +155,12 @@ func (h *handler) UpdateWorkspace(c *gin.Context) {
 func (h *handler) DeleteWorkspace(c *gin.Context) {
 	id := c.Param("id")
 	loggedUser := c.MustGet("user").(auth.UserResponse)
+
+	var pgUUID pgtype.UUID
+	copy(pgUUID.Bytes[:], id[:])
+
 	err := h.service.DeleteWorkspace(c, repo.DeleteWorkspaceParams{
-		ID: id,
+		ID: pgUUID,
 		UserID: pgtype.Text{
 			String: loggedUser.ID,
 			Valid:  true,

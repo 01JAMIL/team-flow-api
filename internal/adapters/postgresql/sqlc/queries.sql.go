@@ -11,13 +11,43 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addWorkspaceMember = `-- name: AddWorkspaceMember :one
+INSERT INTO workspace_members (id, user_id, workspace_id, user_role)
+VALUES ($1, $2, $3, $4) RETURNING id, user_id, workspace_id, user_role, created_at
+`
+
+type AddWorkspaceMemberParams struct {
+	ID          pgtype.UUID `json:"id"`
+	UserID      pgtype.Text `json:"user_id"`
+	WorkspaceID pgtype.Text `json:"workspace_id"`
+	UserRole    string      `json:"user_role"`
+}
+
+func (q *Queries) AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) (WorkspaceMember, error) {
+	row := q.db.QueryRow(ctx, addWorkspaceMember,
+		arg.ID,
+		arg.UserID,
+		arg.WorkspaceID,
+		arg.UserRole,
+	)
+	var i WorkspaceMember
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.WorkspaceID,
+		&i.UserRole,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createWorkspace = `-- name: CreateWorkspace :one
 INSERT INTO workspaces (id, workspace_name, description, user_id)
 VALUES ($1, $2, $3, $4) RETURNING id, workspace_name, description, user_id, created_at, updated_at
 `
 
 type CreateWorkspaceParams struct {
-	ID            string      `json:"id"`
+	ID            pgtype.UUID `json:"id"`
 	WorkspaceName string      `json:"workspace_name"`
 	Description   string      `json:"description"`
 	UserID        pgtype.Text `json:"user_id"`
@@ -50,13 +80,38 @@ WHERE id = $1
 `
 
 type DeleteWorkspaceParams struct {
-	ID     string      `json:"id"`
+	ID     pgtype.UUID `json:"id"`
 	UserID pgtype.Text `json:"user_id"`
 }
 
 func (q *Queries) DeleteWorkspace(ctx context.Context, arg DeleteWorkspaceParams) error {
 	_, err := q.db.Exec(ctx, deleteWorkspace, arg.ID, arg.UserID)
 	return err
+}
+
+const getMemberFromWorkspace = `-- name: GetMemberFromWorkspace :one
+SELECT id, user_id, workspace_id, user_role, created_at
+FROM workspace_members
+WHERE user_id = $1
+  AND workspace_id = $2
+`
+
+type GetMemberFromWorkspaceParams struct {
+	UserID      pgtype.Text `json:"user_id"`
+	WorkspaceID pgtype.Text `json:"workspace_id"`
+}
+
+func (q *Queries) GetMemberFromWorkspace(ctx context.Context, arg GetMemberFromWorkspaceParams) (WorkspaceMember, error) {
+	row := q.db.QueryRow(ctx, getMemberFromWorkspace, arg.UserID, arg.WorkspaceID)
+	var i WorkspaceMember
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.WorkspaceID,
+		&i.UserRole,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
@@ -86,7 +141,7 @@ FROM users
 WHERE id = $1
 `
 
-func (q *Queries) GetUserById(ctx context.Context, id string) (User, error) {
+func (q *Queries) GetUserById(ctx context.Context, id pgtype.UUID) (User, error) {
 	row := q.db.QueryRow(ctx, getUserById, id)
 	var i User
 	err := row.Scan(
@@ -110,7 +165,7 @@ WHERE user_id = $1
 
 type GetUserWorkspaceByIDParams struct {
 	UserID pgtype.Text `json:"user_id"`
-	ID     string      `json:"id"`
+	ID     pgtype.UUID `json:"id"`
 }
 
 func (q *Queries) GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspaceByIDParams) (Workspace, error) {
@@ -160,17 +215,37 @@ func (q *Queries) GetUserWorkspaces(ctx context.Context, userID pgtype.Text) ([]
 	return items, nil
 }
 
+const getWorkspaceById = `-- name: GetWorkspaceById :one
+SELECT id, workspace_name, description, user_id, created_at, updated_at
+FROM workspaces
+WHERE id = $1
+`
+
+func (q *Queries) GetWorkspaceById(ctx context.Context, id pgtype.UUID) (Workspace, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceById, id)
+	var i Workspace
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceName,
+		&i.Description,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const register = `-- name: Register :one
 INSERT INTO users (id, first_name, last_name, email, password)
 VALUES ($1, $2, $3, $4, $5) RETURNING id, first_name, last_name, email, password, created_at, updated_at
 `
 
 type RegisterParams struct {
-	ID        string `json:"id"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Email     string `json:"email"`
-	Password  string `json:"password"`
+	ID        pgtype.UUID `json:"id"`
+	FirstName string      `json:"first_name"`
+	LastName  string      `json:"last_name"`
+	Email     string      `json:"email"`
+	Password  string      `json:"password"`
 }
 
 func (q *Queries) Register(ctx context.Context, arg RegisterParams) (User, error) {
@@ -204,7 +279,7 @@ WHERE id = $1
 `
 
 type UpdateWorkspaceParams struct {
-	ID            string      `json:"id"`
+	ID            pgtype.UUID `json:"id"`
 	UserID        pgtype.Text `json:"user_id"`
 	WorkspaceName string      `json:"workspace_name"`
 	Description   string      `json:"description"`
