@@ -55,3 +55,21 @@ SELECT *
 FROM workspace_members
 WHERE user_id = $1
   AND workspace_id = $2;
+
+-- name: GetWorkspaceMembers :many
+SELECT count(*) OVER () AS total_count,
+       wm.id            AS member_id,
+       wm.workspace_id,
+       wm.user_role,
+       wm.created_at    AS member_created_at,
+       u.id::uuid       AS user_id,
+       u.first_name,
+       u.last_name,
+       u.email,
+       u.created_at,
+       u.updated_at
+FROM workspace_members wm
+         JOIN users u ON u.id::uuid = wm.user_id::uuid
+WHERE wm.workspace_id = $1
+ORDER BY wm.created_at DESC
+LIMIT $2 OFFSET $3;

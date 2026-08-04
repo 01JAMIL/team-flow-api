@@ -235,6 +235,77 @@ func (q *Queries) GetWorkspaceById(ctx context.Context, id pgtype.UUID) (Workspa
 	return i, err
 }
 
+const getWorkspaceMembers = `-- name: GetWorkspaceMembers :many
+SELECT count(*) OVER () AS total_count,
+       wm.id            AS member_id,
+       wm.workspace_id,
+       wm.user_role,
+       wm.created_at    AS member_created_at,
+       u.id::uuid       AS user_id,
+       u.first_name,
+       u.last_name,
+       u.email,
+       u.created_at,
+       u.updated_at
+FROM workspace_members wm
+         JOIN users u ON u.id::uuid = wm.user_id::uuid
+WHERE wm.workspace_id = $1
+ORDER BY wm.created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type GetWorkspaceMembersParams struct {
+	WorkspaceID pgtype.Text `json:"workspace_id"`
+	Limit       int32       `json:"limit"`
+	Offset      int32       `json:"offset"`
+}
+
+type GetWorkspaceMembersRow struct {
+	TotalCount      int64              `json:"total_count"`
+	MemberID        pgtype.UUID        `json:"member_id"`
+	WorkspaceID     pgtype.Text        `json:"workspace_id"`
+	UserRole        string             `json:"user_role"`
+	MemberCreatedAt pgtype.Timestamptz `json:"member_created_at"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	FirstName       string             `json:"first_name"`
+	LastName        string             `json:"last_name"`
+	Email           string             `json:"email"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetWorkspaceMembers(ctx context.Context, arg GetWorkspaceMembersParams) ([]GetWorkspaceMembersRow, error) {
+	rows, err := q.db.Query(ctx, getWorkspaceMembers, arg.WorkspaceID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetWorkspaceMembersRow
+	for rows.Next() {
+		var i GetWorkspaceMembersRow
+		if err := rows.Scan(
+			&i.TotalCount,
+			&i.MemberID,
+			&i.WorkspaceID,
+			&i.UserRole,
+			&i.MemberCreatedAt,
+			&i.UserID,
+			&i.FirstName,
+			&i.LastName,
+			&i.Email,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const register = `-- name: Register :one
 INSERT INTO users (id, first_name, last_name, email, password)
 VALUES ($1, $2, $3, $4, $5) RETURNING id, first_name, last_name, email, password, created_at, updated_at

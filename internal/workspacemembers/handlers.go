@@ -3,6 +3,7 @@ package workspacemembers
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -58,4 +59,39 @@ func (h *handler) AddWorkspaceMember(c *gin.Context) {
 		"message": "Member added successfully",
 		"member":  member,
 	})
+}
+
+func (h *handler) GetWorkspaceMembers(c *gin.Context) {
+	id := c.Param("id")
+
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	pageSize, err := strconv.Atoi(c.DefaultQuery("pageSize", strconv.Itoa(DefaultPageSize)))
+	if err != nil || pageSize < 1 {
+		pageSize = DefaultPageSize
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	response, err := h.service.GetWorkspaceMembers(c, id, page, pageSize)
+	if err != nil {
+		if errors.Is(err, ErrWorkspaceNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Workspace not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    "FAILED_TO_GET_WORKSPACE_MEMBERS",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
 }

@@ -48,6 +48,7 @@ func (app *application) routes() http.Handler {
 		authGroup.DELETE("/workspaces/:id", workspaceHandler.DeleteWorkspace)
 
 		/* Workspace Members routes */
+		authGroup.GET("/workspaces/:id/members", workspaceMembersHandler.GetWorkspaceMembers)
 		authGroup.POST("/workspaces/:id/members", workspaceMembersHandler.AddWorkspaceMember)
 	}
 
