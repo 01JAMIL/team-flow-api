@@ -108,9 +108,6 @@ func (h *handler) GetUserWorkspaces(c *gin.Context) {
 	if err != nil || pageSize < 1 {
 		pageSize = DefaultPageSize
 	}
-	if pageSize > 100 {
-		pageSize = 100
-	}
 
 	response, err := h.service.GetUserWorkspaces(c, pgtype.Text{
 		String: loggedUser.ID,

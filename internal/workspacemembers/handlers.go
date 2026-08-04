@@ -73,9 +73,6 @@ func (h *handler) GetWorkspaceMembers(c *gin.Context) {
 	if err != nil || pageSize < 1 {
 		pageSize = DefaultPageSize
 	}
-	if pageSize > 100 {
-		pageSize = 100
-	}
 
 	response, err := h.service.GetWorkspaceMembers(c, id, page, pageSize)
 	if err != nil {
