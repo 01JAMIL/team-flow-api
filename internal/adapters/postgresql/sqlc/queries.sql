@@ -79,6 +79,19 @@ SELECT *
 FROM workspaces
 WHERE id = $1::varchar;
 
+-- name: GetWorkspaceProjects :many
+SELECT count(*) OVER () AS total_count,
+       id,
+       name,
+       description,
+       workspace_id,
+       created_at,
+       updated_at
+FROM projects
+WHERE workspace_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
 -- name: GetWorkspaceMembers :many
 SELECT count(*) OVER () AS total_count,
        wm.id            AS member_id,

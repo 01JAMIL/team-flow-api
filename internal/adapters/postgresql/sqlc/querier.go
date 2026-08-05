@@ -24,6 +24,7 @@ type Querier interface {
 	GetWorkspaceByID(ctx context.Context, dollar_1 string) (Workspace, error)
 	GetWorkspaceById(ctx context.Context, id pgtype.UUID) (Workspace, error)
 	GetWorkspaceMembers(ctx context.Context, arg GetWorkspaceMembersParams) ([]GetWorkspaceMembersRow, error)
+	GetWorkspaceProjects(ctx context.Context, arg GetWorkspaceProjectsParams) ([]GetWorkspaceProjectsRow, error)
 	Register(ctx context.Context, arg RegisterParams) (User, error)
 	UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) (Workspace, error)
 }

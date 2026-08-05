@@ -399,6 +399,64 @@ func (q *Queries) GetWorkspaceMembers(ctx context.Context, arg GetWorkspaceMembe
 	return items, nil
 }
 
+const getWorkspaceProjects = `-- name: GetWorkspaceProjects :many
+SELECT count(*) OVER () AS total_count,
+       id,
+       name,
+       description,
+       workspace_id,
+       created_at,
+       updated_at
+FROM projects
+WHERE workspace_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type GetWorkspaceProjectsParams struct {
+	WorkspaceID pgtype.Text `json:"workspace_id"`
+	Limit       int32       `json:"limit"`
+	Offset      int32       `json:"offset"`
+}
+
+type GetWorkspaceProjectsRow struct {
+	TotalCount  int64              `json:"total_count"`
+	ID          pgtype.UUID        `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	WorkspaceID pgtype.Text        `json:"workspace_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetWorkspaceProjects(ctx context.Context, arg GetWorkspaceProjectsParams) ([]GetWorkspaceProjectsRow, error) {
+	rows, err := q.db.Query(ctx, getWorkspaceProjects, arg.WorkspaceID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetWorkspaceProjectsRow
+	for rows.Next() {
+		var i GetWorkspaceProjectsRow
+		if err := rows.Scan(
+			&i.TotalCount,
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.WorkspaceID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const register = `-- name: Register :one
 INSERT INTO users (id, first_name, last_name, email, password)
 VALUES ($1, $2, $3, $4, $5) RETURNING id, first_name, last_name, email, password, created_at, updated_at
