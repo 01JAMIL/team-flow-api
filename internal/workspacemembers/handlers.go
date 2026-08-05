@@ -92,3 +92,34 @@ func (h *handler) GetWorkspaceMembers(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 }
+
+func (h *handler) RemoveWorkspaceMember(c *gin.Context) {
+	id := c.Param("id")
+	userID := c.Param("userId")
+
+	err := h.service.RemoveWorkspaceMember(c, id, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrWorkspaceNotFound):
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Workspace not found",
+			})
+			return
+		case errors.Is(err, ErrUserNotFound):
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "User not found",
+			})
+			return
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code":    "FAILED_TO_REMOVE_WORKSPACE_MEMBER",
+				"message": err.Error(),
+			})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Member removed successfully",
+	})
+}

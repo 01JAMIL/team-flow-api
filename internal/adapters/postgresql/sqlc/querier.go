@@ -13,6 +13,7 @@ import (
 type Querier interface {
 	AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) (WorkspaceMember, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
+	DeleteMemberFromWorkspace(ctx context.Context, arg DeleteMemberFromWorkspaceParams) error
 	DeleteWorkspace(ctx context.Context, arg DeleteWorkspaceParams) error
 	GetMemberFromWorkspace(ctx context.Context, arg GetMemberFromWorkspaceParams) (WorkspaceMember, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)

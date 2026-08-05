@@ -72,6 +72,23 @@ func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams
 	return i, err
 }
 
+const deleteMemberFromWorkspace = `-- name: DeleteMemberFromWorkspace :exec
+DELETE
+FROM workspace_members
+WHERE user_id = $1
+  AND workspace_id = $2
+`
+
+type DeleteMemberFromWorkspaceParams struct {
+	UserID      pgtype.Text `json:"user_id"`
+	WorkspaceID pgtype.Text `json:"workspace_id"`
+}
+
+func (q *Queries) DeleteMemberFromWorkspace(ctx context.Context, arg DeleteMemberFromWorkspaceParams) error {
+	_, err := q.db.Exec(ctx, deleteMemberFromWorkspace, arg.UserID, arg.WorkspaceID)
+	return err
+}
+
 const deleteWorkspace = `-- name: DeleteWorkspace :exec
 DELETE
 FROM workspaces

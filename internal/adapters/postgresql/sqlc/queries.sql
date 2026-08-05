@@ -64,6 +64,12 @@ FROM workspace_members
 WHERE user_id = $1
   AND workspace_id = $2;
 
+-- name: DeleteMemberFromWorkspace :exec
+DELETE
+FROM workspace_members
+WHERE user_id = $1
+  AND workspace_id = $2;
+
 -- name: GetWorkspaceMembers :many
 SELECT count(*) OVER () AS total_count,
        wm.id            AS member_id,

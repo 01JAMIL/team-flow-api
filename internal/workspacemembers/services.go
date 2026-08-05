@@ -10,11 +10,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-var ErrWorkspaceNotFound = errors.New("workspace does not exist")
+var (
+	ErrWorkspaceNotFound = errors.New("workspace does not exist")
+	ErrUserNotFound      = errors.New("user does not exist")
+)
 
 type Service interface {
 	AddWorkspaceMember(ctx context.Context, workspaceID string, payload addWorkspaceMemberPayload) (repo.WorkspaceMember, error)
 	GetWorkspaceMembers(ctx context.Context, workspaceID string, page, pageSize int) (getWorkspaceMembersResponse, error)
+	RemoveWorkspaceMember(ctx context.Context, workspaceID, userID string) error
 }
 
 type svc struct {
@@ -66,6 +70,33 @@ func (s *svc) AddWorkspaceMember(ctx context.Context, workspaceID string, payloa
 		UserID:      pgtype.Text{String: payload.UserID, Valid: true},
 		WorkspaceID: pgtype.Text{String: workspaceID, Valid: true},
 		UserRole:    payload.UserRole,
+	})
+}
+
+func (s *svc) RemoveWorkspaceMember(ctx context.Context, workspaceID, userID string) error {
+	workspaceUUID, err := uuid.Parse(workspaceID)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.repo.GetWorkspaceById(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
+	if err != nil {
+		return ErrWorkspaceNotFound
+	}
+
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.repo.GetUserById(ctx, pgtype.UUID{Bytes: userUUID, Valid: true})
+	if err != nil {
+		return ErrUserNotFound
+	}
+
+	return s.repo.DeleteMemberFromWorkspace(ctx, repo.DeleteMemberFromWorkspaceParams{
+		UserID:      pgtype.Text{String: userID, Valid: true},
+		WorkspaceID: pgtype.Text{String: workspaceID, Valid: true},
 	})
 }
 
