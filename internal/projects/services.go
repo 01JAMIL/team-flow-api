@@ -20,6 +20,7 @@ type Service interface {
 	CreateProject(ctx context.Context, workspaceID string, payload createProjectPayload) (projectResponse, error)
 	GetWorkspaceProjects(ctx context.Context, workspaceID string, page, pageSize int) (getWorkspaceProjectsResponse, error)
 	GetProjectByID(ctx context.Context, projectID string) (projectResponse, error)
+	UpdateProject(ctx context.Context, projectID string, payload updateProjectPayload) (projectResponse, error)
 	DeleteProject(ctx context.Context, projectID string) error
 }
 
@@ -122,6 +123,29 @@ func (s *svc) GetProjectByID(ctx context.Context, projectID string) (projectResp
 	project, err := s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
 		return projectResponse{}, ErrProjectNotFound
+	}
+
+	return toProjectResponse(project), nil
+}
+
+func (s *svc) UpdateProject(ctx context.Context, projectID string, payload updateProjectPayload) (projectResponse, error) {
+	id, err := uuid.Parse(projectID)
+	if err != nil {
+		return projectResponse{}, err
+	}
+
+	_, err = s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
+		return projectResponse{}, ErrProjectNotFound
+	}
+
+	project, err := s.repo.UpdateProject(ctx, repo.UpdateProjectParams{
+		ID:          pgtype.UUID{Bytes: id, Valid: true},
+		Name:        payload.Name,
+		Description: payload.Description,
+	})
+	if err != nil {
+		return projectResponse{}, err
 	}
 
 	return toProjectResponse(project), nil

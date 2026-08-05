@@ -172,3 +172,37 @@ func (h *handler) DeleteProject(c *gin.Context) {
 		"message": "Project deleted successfully",
 	})
 }
+
+func (h *handler) UpdateProject(c *gin.Context) {
+	id := c.Param("id")
+
+	var payload updateProjectPayload
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Invalid request payload",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	project, err := h.service.UpdateProject(c, id, payload)
+	if err != nil {
+		if errors.Is(err, ErrProjectNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Project not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    "FAILED_TO_UPDATE_PROJECT",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Project updated successfully",
+		"project": project,
+	})
+}

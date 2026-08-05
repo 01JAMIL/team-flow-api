@@ -522,6 +522,34 @@ func (q *Queries) Register(ctx context.Context, arg RegisterParams) (User, error
 	return i, err
 }
 
+const updateProject = `-- name: UpdateProject :one
+UPDATE projects
+SET name        = $2,
+    description = $3,
+    updated_at  = now()
+WHERE id = $1 RETURNING id, name, description, workspace_id, created_at, updated_at
+`
+
+type UpdateProjectParams struct {
+	ID          pgtype.UUID `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+}
+
+func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (Project, error) {
+	row := q.db.QueryRow(ctx, updateProject, arg.ID, arg.Name, arg.Description)
+	var i Project
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.WorkspaceID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateWorkspace = `-- name: UpdateWorkspace :one
 UPDATE workspaces
 SET workspace_name = $3,
