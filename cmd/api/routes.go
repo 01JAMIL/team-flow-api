@@ -3,6 +3,7 @@ package main
 import (
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	"gin-api-1/internal/auth"
+	"gin-api-1/internal/projects"
 	"gin-api-1/internal/workspace"
 	"gin-api-1/internal/workspacemembers"
 	"net/http"
@@ -21,6 +22,9 @@ func (app *application) routes() http.Handler {
 
 	workspaceMembersService := workspacemembers.NewWorkspaceMembersService(repo.New(app.db), app.db)
 	workspaceMembersHandler := workspacemembers.NewWorkspaceMembersHandler(workspaceMembersService)
+
+	projectsService := projects.NewProjectsService(repo.New(app.db), app.db)
+	projectsHandler := projects.NewProjectsHandler(projectsService)
 
 	/* Public routes */
 	v1 := r.Group("/api/v1")
@@ -51,6 +55,9 @@ func (app *application) routes() http.Handler {
 		authGroup.GET("/workspaces/:id/members", workspaceMembersHandler.GetWorkspaceMembers)
 		authGroup.POST("/workspaces/:id/members", workspaceMembersHandler.AddWorkspaceMember)
 		authGroup.DELETE("/workspaces/:id/members/:userId", workspaceMembersHandler.RemoveWorkspaceMember)
+
+		/* Projects routes */
+		authGroup.POST("/workspaces/:id/projects", projectsHandler.CreateProject)
 	}
 
 	return r

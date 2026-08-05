@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) (WorkspaceMember, error)
+	CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
 	DeleteMemberFromWorkspace(ctx context.Context, arg DeleteMemberFromWorkspaceParams) error
 	DeleteWorkspace(ctx context.Context, arg DeleteWorkspaceParams) error
@@ -20,6 +21,7 @@ type Querier interface {
 	GetUserById(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspaceByIDParams) (Workspace, error)
 	GetUserWorkspaces(ctx context.Context, arg GetUserWorkspacesParams) ([]GetUserWorkspacesRow, error)
+	GetWorkspaceByID(ctx context.Context, dollar_1 string) (Workspace, error)
 	GetWorkspaceById(ctx context.Context, id pgtype.UUID) (Workspace, error)
 	GetWorkspaceMembers(ctx context.Context, arg GetWorkspaceMembersParams) ([]GetWorkspaceMembersRow, error)
 	Register(ctx context.Context, arg RegisterParams) (User, error)

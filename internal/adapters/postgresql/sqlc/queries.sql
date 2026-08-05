@@ -70,6 +70,15 @@ FROM workspace_members
 WHERE user_id = $1
   AND workspace_id = $2;
 
+-- name: CreateProject :one
+INSERT INTO projects (id, name, description, workspace_id)
+VALUES ($1, $2, $3, $4) RETURNING *;
+
+-- name: GetWorkspaceByID :one
+SELECT *
+FROM workspaces
+WHERE id = $1::varchar;
+
 -- name: GetWorkspaceMembers :many
 SELECT count(*) OVER () AS total_count,
        wm.id            AS member_id,

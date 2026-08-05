@@ -41,6 +41,37 @@ func (q *Queries) AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMember
 	return i, err
 }
 
+const createProject = `-- name: CreateProject :one
+INSERT INTO projects (id, name, description, workspace_id)
+VALUES ($1, $2, $3, $4) RETURNING id, name, description, workspace_id, created_at, updated_at
+`
+
+type CreateProjectParams struct {
+	ID          pgtype.UUID `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	WorkspaceID pgtype.Text `json:"workspace_id"`
+}
+
+func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error) {
+	row := q.db.QueryRow(ctx, createProject,
+		arg.ID,
+		arg.Name,
+		arg.Description,
+		arg.WorkspaceID,
+	)
+	var i Project
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.WorkspaceID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createWorkspace = `-- name: CreateWorkspace :one
 INSERT INTO workspaces (id, workspace_name, description, user_id)
 VALUES ($1, $2, $3, $4) RETURNING id, workspace_name, description, user_id, created_at, updated_at
@@ -255,6 +286,26 @@ func (q *Queries) GetUserWorkspaces(ctx context.Context, arg GetUserWorkspacesPa
 		return nil, err
 	}
 	return items, nil
+}
+
+const getWorkspaceByID = `-- name: GetWorkspaceByID :one
+SELECT id, workspace_name, description, user_id, created_at, updated_at
+FROM workspaces
+WHERE id = $1::varchar
+`
+
+func (q *Queries) GetWorkspaceByID(ctx context.Context, dollar_1 string) (Workspace, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceByID, dollar_1)
+	var i Workspace
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceName,
+		&i.Description,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getWorkspaceById = `-- name: GetWorkspaceById :one
