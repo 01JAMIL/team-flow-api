@@ -59,6 +59,8 @@ func (app *application) routes() http.Handler {
 		/* Projects routes */
 		authGroup.GET("/workspaces/:id/projects", projectsHandler.GetWorkspaceProjects)
 		authGroup.POST("/workspaces/:id/projects", projectsHandler.CreateProject)
+		authGroup.GET("/projects/:id", projectsHandler.GetProjectByID)
+		authGroup.DELETE("/projects/:id", projectsHandler.DeleteProject)
 	}
 
 	return r

@@ -74,6 +74,16 @@ WHERE user_id = $1
 INSERT INTO projects (id, name, description, workspace_id)
 VALUES ($1, $2, $3, $4) RETURNING *;
 
+-- name: GetProjectById :one
+SELECT *
+FROM projects
+WHERE id = $1;
+
+-- name: DeleteProject :exec
+DELETE
+FROM projects
+WHERE id = $1;
+
 -- name: GetWorkspaceByID :one
 SELECT *
 FROM workspaces

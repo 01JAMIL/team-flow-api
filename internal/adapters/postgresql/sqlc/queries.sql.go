@@ -120,6 +120,17 @@ func (q *Queries) DeleteMemberFromWorkspace(ctx context.Context, arg DeleteMembe
 	return err
 }
 
+const deleteProject = `-- name: DeleteProject :exec
+DELETE
+FROM projects
+WHERE id = $1
+`
+
+func (q *Queries) DeleteProject(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteProject, id)
+	return err
+}
+
 const deleteWorkspace = `-- name: DeleteWorkspace :exec
 DELETE
 FROM workspaces
@@ -158,6 +169,26 @@ func (q *Queries) GetMemberFromWorkspace(ctx context.Context, arg GetMemberFromW
 		&i.WorkspaceID,
 		&i.UserRole,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getProjectById = `-- name: GetProjectById :one
+SELECT id, name, description, workspace_id, created_at, updated_at
+FROM projects
+WHERE id = $1
+`
+
+func (q *Queries) GetProjectById(ctx context.Context, id pgtype.UUID) (Project, error) {
+	row := q.db.QueryRow(ctx, getProjectById, id)
+	var i Project
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.WorkspaceID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

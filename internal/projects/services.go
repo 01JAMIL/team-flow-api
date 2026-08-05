@@ -10,12 +10,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-var ErrWorkspaceNotFound = errors.New("workspace does not exist")
+var (
+	ErrWorkspaceNotFound = errors.New("workspace does not exist")
+	ErrProjectNotFound   = errors.New("project does not exist")
+)
 
 type Service interface {
 	WorkspaceExists(ctx context.Context, workspaceID string) error
 	CreateProject(ctx context.Context, workspaceID string, payload createProjectPayload) (projectResponse, error)
 	GetWorkspaceProjects(ctx context.Context, workspaceID string, page, pageSize int) (getWorkspaceProjectsResponse, error)
+	GetProjectByID(ctx context.Context, projectID string) (projectResponse, error)
+	DeleteProject(ctx context.Context, projectID string) error
 }
 
 type svc struct {
@@ -105,6 +110,38 @@ func (s *svc) CreateProject(ctx context.Context, workspaceID string, payload cre
 		return projectResponse{}, err
 	}
 
+	return toProjectResponse(project), nil
+}
+
+func (s *svc) GetProjectByID(ctx context.Context, projectID string) (projectResponse, error) {
+	id, err := uuid.Parse(projectID)
+	if err != nil {
+		return projectResponse{}, err
+	}
+
+	project, err := s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
+		return projectResponse{}, ErrProjectNotFound
+	}
+
+	return toProjectResponse(project), nil
+}
+
+func (s *svc) DeleteProject(ctx context.Context, projectID string) error {
+	id, err := uuid.Parse(projectID)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
+		return ErrProjectNotFound
+	}
+
+	return s.repo.DeleteProject(ctx, pgtype.UUID{Bytes: id, Valid: true})
+}
+
+func toProjectResponse(project repo.Project) projectResponse {
 	return projectResponse{
 		ID:          project.ID.String(),
 		Name:        project.Name,
@@ -112,5 +149,5 @@ func (s *svc) CreateProject(ctx context.Context, workspaceID string, payload cre
 		WorkspaceID: project.WorkspaceID.String,
 		CreatedAt:   project.CreatedAt,
 		UpdatedAt:   project.UpdatedAt,
-	}, nil
+	}
 }

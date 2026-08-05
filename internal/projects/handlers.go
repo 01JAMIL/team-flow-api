@@ -124,3 +124,51 @@ func (h *handler) GetWorkspaceProjects(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 }
+
+func (h *handler) GetProjectByID(c *gin.Context) {
+	id := c.Param("id")
+
+	project, err := h.service.GetProjectByID(c, id)
+	if err != nil {
+		if errors.Is(err, ErrProjectNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Project not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    "FAILED_TO_GET_PROJECT",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"project": project,
+	})
+}
+
+func (h *handler) DeleteProject(c *gin.Context) {
+	id := c.Param("id")
+
+	err := h.service.DeleteProject(c, id)
+	if err != nil {
+		if errors.Is(err, ErrProjectNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Project not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    "FAILED_TO_DELETE_PROJECT",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Project deleted successfully",
+	})
+}
