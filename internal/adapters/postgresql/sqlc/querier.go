@@ -21,6 +21,7 @@ type Querier interface {
 	GetMemberFromWorkspace(ctx context.Context, arg GetMemberFromWorkspaceParams) (WorkspaceMember, error)
 	GetProjectById(ctx context.Context, id pgtype.UUID) (Project, error)
 	GetProjectTasks(ctx context.Context, arg GetProjectTasksParams) ([]GetProjectTasksRow, error)
+	GetTaskById(ctx context.Context, id pgtype.UUID) (Task, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserById(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspaceByIDParams) (Workspace, error)

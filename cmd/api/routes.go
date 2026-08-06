@@ -70,6 +70,7 @@ func (app *application) routes() http.Handler {
 		/* Tasks routes */
 		authGroup.POST("/projects/:projectID/tasks", tasksHandler.CreateTask)
 		authGroup.GET("/projects/:projectID/tasks", tasksHandler.GetProjectTasks)
+		authGroup.GET("/tasks/:id", tasksHandler.GetTaskByID)
 	}
 
 	return r

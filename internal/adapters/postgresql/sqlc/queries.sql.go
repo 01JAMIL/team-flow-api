@@ -312,6 +312,31 @@ func (q *Queries) GetProjectTasks(ctx context.Context, arg GetProjectTasksParams
 	return items, nil
 }
 
+const getTaskById = `-- name: GetTaskById :one
+SELECT id, name, description, start_date, end_date, status, priority, project_id, assignee_id, created_at, updated_at
+FROM tasks
+WHERE id = $1
+`
+
+func (q *Queries) GetTaskById(ctx context.Context, id pgtype.UUID) (Task, error) {
+	row := q.db.QueryRow(ctx, getTaskById, id)
+	var i Task
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.StartDate,
+		&i.EndDate,
+		&i.Status,
+		&i.Priority,
+		&i.ProjectID,
+		&i.AssigneeID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, first_name, last_name, email, password, created_at, updated_at
 FROM users
@@ -381,8 +406,7 @@ func (q *Queries) GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspace
 }
 
 const getUserWorkspaces = `-- name: GetUserWorkspaces :many
-SELECT count(*) OVER () AS total_count,
-       id,
+SELECT count(*) OVER () AS total_count, id,
        workspace_name,
        description,
        user_id,
@@ -390,8 +414,8 @@ SELECT count(*) OVER () AS total_count,
        updated_at
 FROM workspaces
 WHERE user_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
+ORDER BY created_at DESC LIMIT $2
+OFFSET $3
 `
 
 type GetUserWorkspacesParams struct {
@@ -479,13 +503,11 @@ func (q *Queries) GetWorkspaceById(ctx context.Context, id pgtype.UUID) (Workspa
 }
 
 const getWorkspaceMembers = `-- name: GetWorkspaceMembers :many
-SELECT count(*) OVER () AS total_count,
-       wm.id            AS member_id,
+SELECT count(*)         OVER () AS total_count, wm.id AS member_id,
        wm.workspace_id,
        wm.user_role,
-       wm.created_at    AS member_created_at,
-       u.id::uuid       AS user_id,
-       u.first_name,
+       wm.created_at AS member_created_at,
+       u.id::uuid       AS user_id, u.first_name,
        u.last_name,
        u.email,
        u.created_at,
@@ -494,7 +516,8 @@ FROM workspace_members wm
          JOIN users u ON u.id::uuid = wm.user_id::uuid
 WHERE wm.workspace_id = $1
 ORDER BY wm.created_at DESC
-LIMIT $2 OFFSET $3
+    LIMIT $2
+OFFSET $3
 `
 
 type GetWorkspaceMembersParams struct {
@@ -550,8 +573,7 @@ func (q *Queries) GetWorkspaceMembers(ctx context.Context, arg GetWorkspaceMembe
 }
 
 const getWorkspaceProjects = `-- name: GetWorkspaceProjects :many
-SELECT count(*) OVER () AS total_count,
-       id,
+SELECT count(*) OVER () AS total_count, id,
        name,
        description,
        workspace_id,
@@ -559,8 +581,8 @@ SELECT count(*) OVER () AS total_count,
        updated_at
 FROM projects
 WHERE workspace_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
+ORDER BY created_at DESC LIMIT $2
+OFFSET $3
 `
 
 type GetWorkspaceProjectsParams struct {

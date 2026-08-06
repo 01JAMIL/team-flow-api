@@ -127,9 +127,9 @@ OFFSET $3;
 -- name: CreateTask :one
 INSERT INTO tasks (id, name, description, start_date, end_date, status, priority, project_id, assignee_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
-
 -- name: GetProjectTasks :many
-SELECT count(*) OVER () AS total_count, id,
+SELECT count(*) OVER () AS total_count,
+       id,
        name,
        description,
        start_date,
@@ -142,5 +142,10 @@ SELECT count(*) OVER () AS total_count, id,
        updated_at
 FROM tasks
 WHERE project_id = $1
-ORDER BY created_at DESC LIMIT $2
-OFFSET $3;
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: GetTaskById :one
+SELECT *
+FROM tasks
+WHERE id = $1;

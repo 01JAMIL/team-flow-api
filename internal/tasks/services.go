@@ -15,12 +15,14 @@ const dateLayout = "2006-01-02"
 
 var (
 	ErrProjectNotFound = errors.New("project does not exist")
+	ErrTaskNotFound    = errors.New("task does not exist")
 	ErrUserNotFound    = errors.New("user does not exist")
 	ErrInvalidDate     = errors.New("invalid date format, expected YYYY-MM-DD")
 )
 
 type Service interface {
 	CreateTask(ctx context.Context, projectID string, payload createTaskPayload) (taskResponse, error)
+	GetTaskByID(ctx context.Context, taskID string) (taskResponse, error)
 	GetProjectTasks(ctx context.Context, projectID string, page, pageSize int) (getProjectTasksResponse, error)
 }
 
@@ -85,6 +87,20 @@ func (s *svc) CreateTask(ctx context.Context, projectID string, payload createTa
 	})
 	if err != nil {
 		return taskResponse{}, err
+	}
+
+	return toTaskResponse(task), nil
+}
+
+func (s *svc) GetTaskByID(ctx context.Context, taskID string) (taskResponse, error) {
+	id, err := uuid.Parse(taskID)
+	if err != nil {
+		return taskResponse{}, ErrTaskNotFound
+	}
+
+	task, err := s.repo.GetTaskById(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
+		return taskResponse{}, ErrTaskNotFound
 	}
 
 	return toTaskResponse(task), nil

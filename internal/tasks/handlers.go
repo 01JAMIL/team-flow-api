@@ -93,6 +93,30 @@ func (h *handler) CreateTask(c *gin.Context) {
 	})
 }
 
+func (h *handler) GetTaskByID(c *gin.Context) {
+	taskID := c.Param("id")
+
+	task, err := h.service.GetTaskByID(c, taskID)
+	if err != nil {
+		if errors.Is(err, ErrTaskNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Task not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    "FAILED_TO_GET_TASK",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"task": task,
+	})
+}
+
 func (h *handler) GetProjectTasks(c *gin.Context) {
 	projectID := c.Param("projectID")
 
