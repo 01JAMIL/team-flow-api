@@ -177,6 +177,17 @@ func (q *Queries) DeleteProject(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const deleteTask = `-- name: DeleteTask :exec
+DELETE
+FROM tasks
+WHERE id = $1
+`
+
+func (q *Queries) DeleteTask(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteTask, id)
+	return err
+}
+
 const deleteWorkspace = `-- name: DeleteWorkspace :exec
 DELETE
 FROM workspaces
@@ -685,6 +696,58 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (P
 		&i.Name,
 		&i.Description,
 		&i.WorkspaceID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateTask = `-- name: UpdateTask :one
+UPDATE tasks
+SET name        = COALESCE($1, name),
+    description = COALESCE($2, description),
+    start_date  = COALESCE($3, start_date),
+    end_date    = COALESCE($4, end_date),
+    status      = COALESCE($5, status),
+    priority    = COALESCE($6, priority),
+    assignee_id = COALESCE($7, assignee_id),
+    updated_at  = now()
+WHERE id = $8 RETURNING id, name, description, start_date, end_date, status, priority, project_id, assignee_id, created_at, updated_at
+`
+
+type UpdateTaskParams struct {
+	Name        pgtype.Text `json:"name"`
+	Description pgtype.Text `json:"description"`
+	StartDate   pgtype.Date `json:"start_date"`
+	EndDate     pgtype.Date `json:"end_date"`
+	Status      pgtype.Text `json:"status"`
+	Priority    pgtype.Text `json:"priority"`
+	AssigneeID  pgtype.Text `json:"assignee_id"`
+	ID          pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, error) {
+	row := q.db.QueryRow(ctx, updateTask,
+		arg.Name,
+		arg.Description,
+		arg.StartDate,
+		arg.EndDate,
+		arg.Status,
+		arg.Priority,
+		arg.AssigneeID,
+		arg.ID,
+	)
+	var i Task
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.StartDate,
+		&i.EndDate,
+		&i.Status,
+		&i.Priority,
+		&i.ProjectID,
+		&i.AssigneeID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

@@ -71,6 +71,8 @@ func (app *application) routes() http.Handler {
 		authGroup.POST("/projects/:projectID/tasks", tasksHandler.CreateTask)
 		authGroup.GET("/projects/:projectID/tasks", tasksHandler.GetProjectTasks)
 		authGroup.GET("/tasks/:id", tasksHandler.GetTaskByID)
+		authGroup.PATCH("/tasks/:id", tasksHandler.UpdateTask)
+		authGroup.DELETE("/tasks/:id", tasksHandler.DeleteTask)
 	}
 
 	return r

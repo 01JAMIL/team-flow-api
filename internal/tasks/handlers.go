@@ -117,6 +117,103 @@ func (h *handler) GetTaskByID(c *gin.Context) {
 	})
 }
 
+func (h *handler) UpdateTask(c *gin.Context) {
+	taskID := c.Param("id")
+
+	var payload updateTaskPayload
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		if errors.Is(err, io.EOF) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    "VALIDATION_ERROR",
+				"message": "Request body is required",
+			})
+			return
+		}
+
+		if validationErrors, ok := errors.AsType[validator.ValidationErrors](err); ok {
+			errs := make(map[string]string)
+
+			for _, fieldErr := range validationErrors {
+				errs[fieldErr.Field()] = fieldErr.Error()
+			}
+
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    "VALIDATION_ERROR",
+				"message": "Validation failed",
+				"errors":  errs,
+			})
+			return
+		}
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    "VALIDATION_ERROR",
+			"message": "Invalid request body",
+		})
+		return
+	}
+
+	task, err := h.service.UpdateTask(c, taskID, payload)
+	if err != nil {
+		if errors.Is(err, ErrTaskNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Task not found",
+			})
+			return
+		}
+
+		if errors.Is(err, ErrInvalidDate) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    "VALIDATION_ERROR",
+				"message": err.Error(),
+			})
+			return
+		}
+
+		if errors.Is(err, ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "User not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    "FAILED_TO_UPDATE_TASK",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Task updated successfully",
+		"task":    task,
+	})
+}
+
+func (h *handler) DeleteTask(c *gin.Context) {
+	taskID := c.Param("id")
+
+	err := h.service.DeleteTask(c, taskID)
+	if err != nil {
+		if errors.Is(err, ErrTaskNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Task not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    "FAILED_TO_DELETE_TASK",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Task deleted successfully",
+	})
+}
+
 func (h *handler) GetProjectTasks(c *gin.Context) {
 	projectID := c.Param("projectID")
 

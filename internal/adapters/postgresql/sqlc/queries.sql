@@ -149,3 +149,20 @@ LIMIT $2 OFFSET $3;
 SELECT *
 FROM tasks
 WHERE id = $1;
+
+-- name: DeleteTask :exec
+DELETE
+FROM tasks
+WHERE id = $1;
+
+-- name: UpdateTask :one
+UPDATE tasks
+SET name        = COALESCE(sqlc.narg('name'), name),
+    description = COALESCE(sqlc.narg('description'), description),
+    start_date  = COALESCE(sqlc.narg('start_date'), start_date),
+    end_date    = COALESCE(sqlc.narg('end_date'), end_date),
+    status      = COALESCE(sqlc.narg('status'), status),
+    priority    = COALESCE(sqlc.narg('priority'), priority),
+    assignee_id = COALESCE(sqlc.narg('assignee_id'), assignee_id),
+    updated_at  = now()
+WHERE id = sqlc.arg('id') RETURNING *;

@@ -14,6 +14,16 @@ type createTaskPayload struct {
 	AssigneeID  *string `json:"assigneeId"`
 }
 
+type updateTaskPayload struct {
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+	StartDate   *string `json:"startDate,omitempty"`
+	EndDate     *string `json:"endDate,omitempty"`
+	Status      *string `json:"status,omitempty" binding:"omitempty,oneof=TODO IN_PROGRESS TESTING DONE"`
+	Priority    *string `json:"priority,omitempty" binding:"omitempty,oneof=LOW MEDIUM HIGH URGENT"`
+	AssigneeID  *string `json:"assigneeId,omitempty"`
+}
+
 type taskResponse struct {
 	ID          string             `json:"id"`
 	Name        string             `json:"name"`

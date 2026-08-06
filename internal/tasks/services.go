@@ -24,6 +24,8 @@ type Service interface {
 	CreateTask(ctx context.Context, projectID string, payload createTaskPayload) (taskResponse, error)
 	GetTaskByID(ctx context.Context, taskID string) (taskResponse, error)
 	GetProjectTasks(ctx context.Context, projectID string, page, pageSize int) (getProjectTasksResponse, error)
+	UpdateTask(ctx context.Context, taskID string, payload updateTaskPayload) (taskResponse, error)
+	DeleteTask(ctx context.Context, taskID string) error
 }
 
 type svc struct {
@@ -106,6 +108,73 @@ func (s *svc) GetTaskByID(ctx context.Context, taskID string) (taskResponse, err
 	return toTaskResponse(task), nil
 }
 
+func (s *svc) UpdateTask(ctx context.Context, taskID string, payload updateTaskPayload) (taskResponse, error) {
+	id, err := uuid.Parse(taskID)
+	if err != nil {
+		return taskResponse{}, ErrTaskNotFound
+	}
+
+	_, err = s.repo.GetTaskById(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
+		return taskResponse{}, ErrTaskNotFound
+	}
+
+	var assigneeID pgtype.Text
+	if payload.AssigneeID != nil {
+		assigneeUUID, err := uuid.Parse(*payload.AssigneeID)
+		if err != nil {
+			return taskResponse{}, ErrUserNotFound
+		}
+
+		_, err = s.repo.GetUserById(ctx, pgtype.UUID{Bytes: assigneeUUID, Valid: true})
+		if err != nil {
+			return taskResponse{}, ErrUserNotFound
+		}
+
+		assigneeID = pgtype.Text{String: *payload.AssigneeID, Valid: true}
+	}
+
+	startDate, err := parseDatePtr(payload.StartDate)
+	if err != nil {
+		return taskResponse{}, err
+	}
+
+	endDate, err := parseDatePtr(payload.EndDate)
+	if err != nil {
+		return taskResponse{}, err
+	}
+
+	task, err := s.repo.UpdateTask(ctx, repo.UpdateTaskParams{
+		ID:          pgtype.UUID{Bytes: id, Valid: true},
+		Name:        stringPtr(payload.Name),
+		Description: stringPtr(payload.Description),
+		StartDate:   startDate,
+		EndDate:     endDate,
+		Status:      stringPtr(payload.Status),
+		Priority:    stringPtr(payload.Priority),
+		AssigneeID:  assigneeID,
+	})
+	if err != nil {
+		return taskResponse{}, err
+	}
+
+	return toTaskResponse(task), nil
+}
+
+func (s *svc) DeleteTask(ctx context.Context, taskID string) error {
+	id, err := uuid.Parse(taskID)
+	if err != nil {
+		return ErrTaskNotFound
+	}
+
+	_, err = s.repo.GetTaskById(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
+		return ErrTaskNotFound
+	}
+
+	return s.repo.DeleteTask(ctx, pgtype.UUID{Bytes: id, Valid: true})
+}
+
 func (s *svc) GetProjectTasks(ctx context.Context, projectID string, page, pageSize int) (getProjectTasksResponse, error) {
 	id, err := uuid.Parse(projectID)
 	if err != nil {
@@ -176,6 +245,22 @@ func parseDate(value string) (pgtype.Date, error) {
 	}
 
 	return pgtype.Date{Time: t, Valid: true}, nil
+}
+
+func parseDatePtr(value *string) (pgtype.Date, error) {
+	if value == nil {
+		return pgtype.Date{}, nil
+	}
+
+	return parseDate(*value)
+}
+
+func stringPtr(value *string) pgtype.Text {
+	if value == nil {
+		return pgtype.Text{}
+	}
+
+	return pgtype.Text{String: *value, Valid: true}
 }
 
 func toTaskResponse(task repo.Task) taskResponse {
