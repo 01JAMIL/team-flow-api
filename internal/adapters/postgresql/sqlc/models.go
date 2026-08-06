@@ -17,6 +17,20 @@ type Project struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Task struct {
+	ID          pgtype.UUID        `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	StartDate   pgtype.Date        `json:"start_date"`
+	EndDate     pgtype.Date        `json:"end_date"`
+	Status      string             `json:"status"`
+	Priority    string             `json:"priority"`
+	ProjectID   pgtype.UUID        `json:"project_id"`
+	AssigneeID  pgtype.Text        `json:"assignee_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type User struct {
 	ID        pgtype.UUID        `json:"id"`
 	FirstName string             `json:"first_name"`

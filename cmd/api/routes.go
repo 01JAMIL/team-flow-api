@@ -4,6 +4,7 @@ import (
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	"gin-api-1/internal/auth"
 	"gin-api-1/internal/projects"
+	"gin-api-1/internal/tasks"
 	"gin-api-1/internal/workspace"
 	"gin-api-1/internal/workspacemembers"
 	"net/http"
@@ -25,6 +26,9 @@ func (app *application) routes() http.Handler {
 
 	projectsService := projects.NewProjectsService(repo.New(app.db), app.db)
 	projectsHandler := projects.NewProjectsHandler(projectsService)
+
+	tasksService := tasks.NewTasksService(repo.New(app.db), app.db)
+	tasksHandler := tasks.NewTasksHandler(tasksService)
 
 	/* Public routes */
 	v1 := r.Group("/api/v1")
@@ -59,9 +63,13 @@ func (app *application) routes() http.Handler {
 		/* Projects routes */
 		authGroup.GET("/workspaces/:id/projects", projectsHandler.GetWorkspaceProjects)
 		authGroup.POST("/workspaces/:id/projects", projectsHandler.CreateProject)
-		authGroup.GET("/projects/:id", projectsHandler.GetProjectByID)
-		authGroup.PATCH("/projects/:id", projectsHandler.UpdateProject)
-		authGroup.DELETE("/projects/:id", projectsHandler.DeleteProject)
+		authGroup.GET("/projects/:projectID", projectsHandler.GetProjectByID)
+		authGroup.PATCH("/projects/:projectID", projectsHandler.UpdateProject)
+		authGroup.DELETE("/projects/:projectID", projectsHandler.DeleteProject)
+
+		/* Tasks routes */
+		authGroup.POST("/projects/:projectID/tasks", tasksHandler.CreateTask)
+		authGroup.GET("/projects/:projectID/tasks", tasksHandler.GetProjectTasks)
 	}
 
 	return r

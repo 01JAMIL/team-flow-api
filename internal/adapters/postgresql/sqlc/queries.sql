@@ -19,8 +19,7 @@ WHERE user_id = $1
   AND id = $2;
 
 -- name: GetUserWorkspaces :many
-SELECT count(*) OVER () AS total_count,
-       id,
+SELECT count(*) OVER () AS total_count, id,
        workspace_name,
        description,
        user_id,
@@ -28,8 +27,8 @@ SELECT count(*) OVER () AS total_count,
        updated_at
 FROM workspaces
 WHERE user_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
+ORDER BY created_at DESC LIMIT $2
+OFFSET $3;
 
 -- name: CreateWorkspace :one
 INSERT INTO workspaces (id, workspace_name, description, user_id)
@@ -97,8 +96,7 @@ FROM workspaces
 WHERE id = $1::varchar;
 
 -- name: GetWorkspaceProjects :many
-SELECT count(*) OVER () AS total_count,
-       id,
+SELECT count(*) OVER () AS total_count, id,
        name,
        description,
        workspace_id,
@@ -106,17 +104,15 @@ SELECT count(*) OVER () AS total_count,
        updated_at
 FROM projects
 WHERE workspace_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
+ORDER BY created_at DESC LIMIT $2
+OFFSET $3;
 
 -- name: GetWorkspaceMembers :many
-SELECT count(*) OVER () AS total_count,
-       wm.id            AS member_id,
+SELECT count(*)         OVER () AS total_count, wm.id AS member_id,
        wm.workspace_id,
        wm.user_role,
-       wm.created_at    AS member_created_at,
-       u.id::uuid       AS user_id,
-       u.first_name,
+       wm.created_at AS member_created_at,
+       u.id::uuid       AS user_id, u.first_name,
        u.last_name,
        u.email,
        u.created_at,
@@ -125,4 +121,26 @@ FROM workspace_members wm
          JOIN users u ON u.id::uuid = wm.user_id::uuid
 WHERE wm.workspace_id = $1
 ORDER BY wm.created_at DESC
-LIMIT $2 OFFSET $3;
+    LIMIT $2
+OFFSET $3;
+
+-- name: CreateTask :one
+INSERT INTO tasks (id, name, description, start_date, end_date, status, priority, project_id, assignee_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
+
+-- name: GetProjectTasks :many
+SELECT count(*) OVER () AS total_count, id,
+       name,
+       description,
+       start_date,
+       end_date,
+       status,
+       priority,
+       project_id,
+       assignee_id,
+       created_at,
+       updated_at
+FROM tasks
+WHERE project_id = $1
+ORDER BY created_at DESC LIMIT $2
+OFFSET $3;

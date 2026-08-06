@@ -126,9 +126,9 @@ func (h *handler) GetWorkspaceProjects(c *gin.Context) {
 }
 
 func (h *handler) GetProjectByID(c *gin.Context) {
-	id := c.Param("id")
+	projectID := c.Param("projectID")
 
-	project, err := h.service.GetProjectByID(c, id)
+	project, err := h.service.GetProjectByID(c, projectID)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -150,9 +150,9 @@ func (h *handler) GetProjectByID(c *gin.Context) {
 }
 
 func (h *handler) DeleteProject(c *gin.Context) {
-	id := c.Param("id")
+	projectID := c.Param("projectID")
 
-	err := h.service.DeleteProject(c, id)
+	err := h.service.DeleteProject(c, projectID)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -174,7 +174,7 @@ func (h *handler) DeleteProject(c *gin.Context) {
 }
 
 func (h *handler) UpdateProject(c *gin.Context) {
-	id := c.Param("id")
+	projectID := c.Param("projectID")
 
 	var payload updateProjectPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
@@ -185,7 +185,7 @@ func (h *handler) UpdateProject(c *gin.Context) {
 		return
 	}
 
-	project, err := h.service.UpdateProject(c, id, payload)
+	project, err := h.service.UpdateProject(c, projectID, payload)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{

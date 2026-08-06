@@ -72,6 +72,52 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 	return i, err
 }
 
+const createTask = `-- name: CreateTask :one
+INSERT INTO tasks (id, name, description, start_date, end_date, status, priority, project_id, assignee_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, name, description, start_date, end_date, status, priority, project_id, assignee_id, created_at, updated_at
+`
+
+type CreateTaskParams struct {
+	ID          pgtype.UUID `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	StartDate   pgtype.Date `json:"start_date"`
+	EndDate     pgtype.Date `json:"end_date"`
+	Status      string      `json:"status"`
+	Priority    string      `json:"priority"`
+	ProjectID   pgtype.UUID `json:"project_id"`
+	AssigneeID  pgtype.Text `json:"assignee_id"`
+}
+
+func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error) {
+	row := q.db.QueryRow(ctx, createTask,
+		arg.ID,
+		arg.Name,
+		arg.Description,
+		arg.StartDate,
+		arg.EndDate,
+		arg.Status,
+		arg.Priority,
+		arg.ProjectID,
+		arg.AssigneeID,
+	)
+	var i Task
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.StartDate,
+		&i.EndDate,
+		&i.Status,
+		&i.Priority,
+		&i.ProjectID,
+		&i.AssigneeID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createWorkspace = `-- name: CreateWorkspace :one
 INSERT INTO workspaces (id, workspace_name, description, user_id)
 VALUES ($1, $2, $3, $4) RETURNING id, workspace_name, description, user_id, created_at, updated_at
@@ -191,6 +237,79 @@ func (q *Queries) GetProjectById(ctx context.Context, id pgtype.UUID) (Project, 
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getProjectTasks = `-- name: GetProjectTasks :many
+SELECT count(*) OVER () AS total_count,
+       id,
+       name,
+       description,
+       start_date,
+       end_date,
+       status,
+       priority,
+       project_id,
+       assignee_id,
+       created_at,
+       updated_at
+FROM tasks
+WHERE project_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type GetProjectTasksParams struct {
+	ProjectID pgtype.UUID `json:"project_id"`
+	Limit     int32       `json:"limit"`
+	Offset    int32       `json:"offset"`
+}
+
+type GetProjectTasksRow struct {
+	TotalCount  int64              `json:"total_count"`
+	ID          pgtype.UUID        `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	StartDate   pgtype.Date        `json:"start_date"`
+	EndDate     pgtype.Date        `json:"end_date"`
+	Status      string             `json:"status"`
+	Priority    string             `json:"priority"`
+	ProjectID   pgtype.UUID        `json:"project_id"`
+	AssigneeID  pgtype.Text        `json:"assignee_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetProjectTasks(ctx context.Context, arg GetProjectTasksParams) ([]GetProjectTasksRow, error) {
+	rows, err := q.db.Query(ctx, getProjectTasks, arg.ProjectID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetProjectTasksRow
+	for rows.Next() {
+		var i GetProjectTasksRow
+		if err := rows.Scan(
+			&i.TotalCount,
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.StartDate,
+			&i.EndDate,
+			&i.Status,
+			&i.Priority,
+			&i.ProjectID,
+			&i.AssigneeID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
