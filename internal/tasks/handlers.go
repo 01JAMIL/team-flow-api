@@ -1,13 +1,11 @@
 package tasks
 
 import (
-	"errors"
-	"io"
+	codeerror "gin-api-1/internal/codeerror"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 )
 
 type handler struct {
@@ -26,64 +24,13 @@ func (h *handler) CreateTask(c *gin.Context) {
 	var payload createTaskPayload
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		if errors.Is(err, io.EOF) {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    "VALIDATION_ERROR",
-				"message": "Request body is required",
-			})
-			return
-		}
-
-		if validationErrors, ok := errors.AsType[validator.ValidationErrors](err); ok {
-			errs := make(map[string]string)
-
-			for _, fieldErr := range validationErrors {
-				errs[fieldErr.Field()] = fieldErr.Error()
-			}
-
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    "VALIDATION_ERROR",
-				"message": "Validation failed",
-				"errors":  errs,
-			})
-			return
-		}
-
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    "VALIDATION_ERROR",
-			"message": "Invalid request body",
-		})
+		codeerror.HandleError(c, codeerror.NewBindingError(err))
 		return
 	}
 
 	task, err := h.service.CreateTask(c, projectID, payload)
 	if err != nil {
-		if errors.Is(err, ErrProjectNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Project not found",
-			})
-			return
-		}
-
-		if errors.Is(err, ErrInvalidDate) {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    "VALIDATION_ERROR",
-				"message": err.Error(),
-			})
-			return
-		}
-
-		if errors.Is(err, ErrUserNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "User not found",
-			})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "FAILED_TO_CREATE_TASK",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -98,17 +45,7 @@ func (h *handler) GetTaskByID(c *gin.Context) {
 
 	task, err := h.service.GetTaskByID(c, taskID)
 	if err != nil {
-		if errors.Is(err, ErrTaskNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Task not found",
-			})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "FAILED_TO_GET_TASK",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -123,64 +60,13 @@ func (h *handler) UpdateTask(c *gin.Context) {
 	var payload updateTaskPayload
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		if errors.Is(err, io.EOF) {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    "VALIDATION_ERROR",
-				"message": "Request body is required",
-			})
-			return
-		}
-
-		if validationErrors, ok := errors.AsType[validator.ValidationErrors](err); ok {
-			errs := make(map[string]string)
-
-			for _, fieldErr := range validationErrors {
-				errs[fieldErr.Field()] = fieldErr.Error()
-			}
-
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    "VALIDATION_ERROR",
-				"message": "Validation failed",
-				"errors":  errs,
-			})
-			return
-		}
-
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    "VALIDATION_ERROR",
-			"message": "Invalid request body",
-		})
+		codeerror.HandleError(c, codeerror.NewBindingError(err))
 		return
 	}
 
 	task, err := h.service.UpdateTask(c, taskID, payload)
 	if err != nil {
-		if errors.Is(err, ErrTaskNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Task not found",
-			})
-			return
-		}
-
-		if errors.Is(err, ErrInvalidDate) {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    "VALIDATION_ERROR",
-				"message": err.Error(),
-			})
-			return
-		}
-
-		if errors.Is(err, ErrUserNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "User not found",
-			})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "FAILED_TO_UPDATE_TASK",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -195,17 +81,7 @@ func (h *handler) DeleteTask(c *gin.Context) {
 
 	err := h.service.DeleteTask(c, taskID)
 	if err != nil {
-		if errors.Is(err, ErrTaskNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Task not found",
-			})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "FAILED_TO_DELETE_TASK",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -229,17 +105,7 @@ func (h *handler) GetProjectTasks(c *gin.Context) {
 
 	response, err := h.service.GetProjectTasks(c, projectID, page, pageSize)
 	if err != nil {
-		if errors.Is(err, ErrProjectNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Project not found",
-			})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "FAILED_TO_GET_PROJECT_TASKS",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 

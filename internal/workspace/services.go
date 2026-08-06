@@ -2,8 +2,8 @@ package workspace
 
 import (
 	"context"
-	"errors"
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
+	codeerror "gin-api-1/internal/codeerror"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -31,7 +31,12 @@ func NewWorkspaceService(repo *repo.Queries, db *pgx.Conn) Service {
 }
 
 func (s *svc) GetUserWorkspaceByID(ctx context.Context, arg repo.GetUserWorkspaceByIDParams) (repo.Workspace, error) {
-	return s.repo.GetUserWorkspaceByID(ctx, arg)
+	workspace, err := s.repo.GetUserWorkspaceByID(ctx, arg)
+	if err != nil {
+		return repo.Workspace{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+	}
+
+	return workspace, nil
 }
 
 func (s *svc) GetUserWorkspaces(ctx context.Context, userID pgtype.Text, page, pageSize int) (getUserWorkspacesResponse, error) {
@@ -81,7 +86,7 @@ func (s *svc) GetUserWorkspaces(ctx context.Context, userID pgtype.Text, page, p
 func (s *svc) CreateWorkspace(ctx context.Context, payload createWorkspacePayload) (repo.Workspace, error) {
 	pk := uuid.New()
 
-	return s.repo.CreateWorkspace(ctx, repo.CreateWorkspaceParams{
+	workspace, err := s.repo.CreateWorkspace(ctx, repo.CreateWorkspaceParams{
 		ID:            pgtype.UUID{Bytes: pk, Valid: true},
 		WorkspaceName: payload.WorkspaceName,
 		Description:   payload.Description,
@@ -90,14 +95,18 @@ func (s *svc) CreateWorkspace(ctx context.Context, payload createWorkspacePayloa
 			Valid:  true,
 		},
 	})
+	if err != nil {
+		return repo.Workspace{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to create workspace", err)
+	}
+
+	return workspace, nil
 }
 
 func (s *svc) UpdateWorkspace(ctx context.Context, payload updateWorkspacePayload) (repo.Workspace, error) {
-
 	id, err := uuid.Parse(payload.ID)
 
 	if err != nil {
-		return repo.Workspace{}, err
+		return repo.Workspace{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 
 	_, err = s.repo.GetUserWorkspaceByID(ctx, repo.GetUserWorkspaceByIDParams{
@@ -109,10 +118,10 @@ func (s *svc) UpdateWorkspace(ctx context.Context, payload updateWorkspacePayloa
 	})
 
 	if err != nil {
-		return repo.Workspace{}, errors.New("workspace does not exist")
+		return repo.Workspace{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 
-	return s.repo.UpdateWorkspace(ctx, repo.UpdateWorkspaceParams{
+	workspace, err := s.repo.UpdateWorkspace(ctx, repo.UpdateWorkspaceParams{
 		ID: pgtype.UUID{Bytes: id, Valid: true},
 		UserID: pgtype.Text{
 			String: payload.UserID,
@@ -121,6 +130,11 @@ func (s *svc) UpdateWorkspace(ctx context.Context, payload updateWorkspacePayloa
 		WorkspaceName: payload.WorkspaceName,
 		Description:   payload.Description,
 	})
+	if err != nil {
+		return repo.Workspace{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to update workspace", err)
+	}
+
+	return workspace, nil
 }
 
 func (s *svc) DeleteWorkspace(ctx context.Context, arg repo.DeleteWorkspaceParams) error {
@@ -130,8 +144,12 @@ func (s *svc) DeleteWorkspace(ctx context.Context, arg repo.DeleteWorkspaceParam
 	})
 
 	if err != nil {
-		return errors.New("workspace does not exist")
+		return codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 
-	return s.repo.DeleteWorkspace(ctx, arg)
+	if err := s.repo.DeleteWorkspace(ctx, arg); err != nil {
+		return codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to delete workspace", err)
+	}
+
+	return nil
 }

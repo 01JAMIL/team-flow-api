@@ -2,17 +2,12 @@ package workspacemembers
 
 import (
 	"context"
-	"errors"
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
+	codeerror "gin-api-1/internal/codeerror"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-)
-
-var (
-	ErrWorkspaceNotFound = errors.New("workspace does not exist")
-	ErrUserNotFound      = errors.New("user does not exist")
 )
 
 type Service interface {
@@ -37,21 +32,21 @@ func (s *svc) AddWorkspaceMember(ctx context.Context, workspaceID string, payloa
 
 	workspaceUUID, err := uuid.Parse(workspaceID)
 	if err != nil {
-		return repo.WorkspaceMember{}, err
+		return repo.WorkspaceMember{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 
 	_, err = s.repo.GetWorkspaceById(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
 	if err != nil {
-		return repo.WorkspaceMember{}, errors.New("workspace does not exist")
+		return repo.WorkspaceMember{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 
 	userUUID, err := uuid.Parse(payload.UserID)
 	if err != nil {
-		return repo.WorkspaceMember{}, err
+		return repo.WorkspaceMember{}, codeerror.New(codeerror.UserNotFound, "User not found")
 	}
 	_, err = s.repo.GetUserById(ctx, pgtype.UUID{Bytes: userUUID, Valid: true})
 	if err != nil {
-		return repo.WorkspaceMember{}, errors.New("user does not exist")
+		return repo.WorkspaceMember{}, codeerror.New(codeerror.UserNotFound, "User not found")
 	}
 
 	_, err = s.repo.GetMemberFromWorkspace(ctx, repo.GetMemberFromWorkspaceParams{
@@ -60,7 +55,7 @@ func (s *svc) AddWorkspaceMember(ctx context.Context, workspaceID string, payloa
 	})
 
 	if err == nil {
-		return repo.WorkspaceMember{}, errors.New("user is already a member of this workspace")
+		return repo.WorkspaceMember{}, codeerror.New(codeerror.MemberAlreadyExists, "User is already a member of this workspace")
 	}
 
 	pk := uuid.New()
@@ -76,22 +71,22 @@ func (s *svc) AddWorkspaceMember(ctx context.Context, workspaceID string, payloa
 func (s *svc) RemoveWorkspaceMember(ctx context.Context, workspaceID, userID string) error {
 	workspaceUUID, err := uuid.Parse(workspaceID)
 	if err != nil {
-		return err
+		return codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 
 	_, err = s.repo.GetWorkspaceById(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
 	if err != nil {
-		return ErrWorkspaceNotFound
+		return codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
-		return err
+		return codeerror.New(codeerror.UserNotFound, "User not found")
 	}
 
 	_, err = s.repo.GetUserById(ctx, pgtype.UUID{Bytes: userUUID, Valid: true})
 	if err != nil {
-		return ErrUserNotFound
+		return codeerror.New(codeerror.UserNotFound, "User not found")
 	}
 
 	return s.repo.DeleteMemberFromWorkspace(ctx, repo.DeleteMemberFromWorkspaceParams{
@@ -103,12 +98,12 @@ func (s *svc) RemoveWorkspaceMember(ctx context.Context, workspaceID, userID str
 func (s *svc) GetWorkspaceMembers(ctx context.Context, workspaceID string, page, pageSize int) (getWorkspaceMembersResponse, error) {
 	workspaceUUID, err := uuid.Parse(workspaceID)
 	if err != nil {
-		return getWorkspaceMembersResponse{}, err
+		return getWorkspaceMembersResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 
 	workspace, err := s.repo.GetWorkspaceById(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
 	if err != nil {
-		return getWorkspaceMembersResponse{}, ErrWorkspaceNotFound
+		return getWorkspaceMembersResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 
 	rows, err := s.repo.GetWorkspaceMembers(ctx, repo.GetWorkspaceMembersParams{

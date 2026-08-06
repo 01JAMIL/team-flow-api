@@ -2,8 +2,8 @@ package auth
 
 import (
 	"context"
-	"errors"
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
+	codeerror "gin-api-1/internal/codeerror"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -36,7 +36,7 @@ func (s *svc) GetUserByEmail(ctx context.Context, email string) (repo.User, erro
 func (s *svc) GetUserById(ctx context.Context, id string) (repo.User, error) {
 	value, err := uuid.Parse(id)
 	if err != nil {
-		return repo.User{}, err
+		return repo.User{}, codeerror.New(codeerror.UserNotFound, "User not found")
 	}
 	return s.repo.GetUserById(ctx, pgtype.UUID{
 		Bytes: value,
@@ -48,14 +48,14 @@ func (s *svc) Register(ctx context.Context, payload registerPayload) (authRespon
 
 	_, err := s.GetUserByEmail(ctx, payload.Email)
 	if err == nil {
-		return authResponse{}, errors.New("user with this email already exists")
+		return authResponse{}, codeerror.New(codeerror.UserAlreadyExist, "User with this email already exists")
 	}
 
 	pk := uuid.New()
 
 	hashedPassword, err := hashPassword(payload.Password)
 	if err != nil {
-		return authResponse{}, err
+		return authResponse{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to create user", err)
 	}
 
 	user, err := s.repo.Register(ctx, repo.RegisterParams{
@@ -70,13 +70,13 @@ func (s *svc) Register(ctx context.Context, payload registerPayload) (authRespon
 	})
 
 	if err != nil {
-		return authResponse{}, err
+		return authResponse{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to create user", err)
 	}
 
 	jwt, err := createToken(user)
 
 	if err != nil {
-		return authResponse{}, err
+		return authResponse{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to create session token", err)
 	}
 
 	return authResponse{
@@ -95,17 +95,17 @@ func (s *svc) Register(ctx context.Context, payload registerPayload) (authRespon
 func (s *svc) Login(ctx context.Context, payload loginPayload) (authResponse, error) {
 	user, err := s.repo.GetUserByEmail(ctx, payload.Email)
 	if err != nil {
-		return authResponse{}, err
+		return authResponse{}, codeerror.New(codeerror.InvalidCredentials, "Invalid email or password")
 	}
 
 	isValidPassword := checkPasswordHash(payload.Password, user.Password)
 	if !isValidPassword {
-		return authResponse{}, errors.New("invalid password")
+		return authResponse{}, codeerror.New(codeerror.InvalidCredentials, "Invalid email or password")
 	}
 
 	jwt, err := createToken(user)
 	if err != nil {
-		return authResponse{}, err
+		return authResponse{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to create session token", err)
 	}
 
 	return authResponse{

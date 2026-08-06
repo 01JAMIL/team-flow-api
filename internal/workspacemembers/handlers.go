@@ -1,12 +1,11 @@
 package workspacemembers
 
 import (
-	"errors"
+	codeerror "gin-api-1/internal/codeerror"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 )
 
 type handler struct {
@@ -25,33 +24,13 @@ func (h *handler) AddWorkspaceMember(c *gin.Context) {
 	var payload addWorkspaceMemberPayload
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		if validationErrors, ok := errors.AsType[validator.ValidationErrors](err); ok {
-			errs := make(map[string]string)
-
-			for _, fieldErr := range validationErrors {
-				errs[fieldErr.Field()] = fieldErr.Error()
-			}
-
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    "VALIDATION_ERROR",
-				"message": "Validation failed",
-				"errors":  errs,
-			})
-			return
-		}
-
-		c.JSON(http.StatusBadRequest, gin.H{
-			"errors": err.Error(),
-		})
+		codeerror.HandleError(c, codeerror.NewBindingError(err))
 		return
 	}
 
 	member, err := h.service.AddWorkspaceMember(c, id, payload)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "FAILED_TO_CREATE_WORKSPACE_MEMBER",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -76,17 +55,7 @@ func (h *handler) GetWorkspaceMembers(c *gin.Context) {
 
 	response, err := h.service.GetWorkspaceMembers(c, id, page, pageSize)
 	if err != nil {
-		if errors.Is(err, ErrWorkspaceNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Workspace not found",
-			})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "FAILED_TO_GET_WORKSPACE_MEMBERS",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -99,24 +68,8 @@ func (h *handler) RemoveWorkspaceMember(c *gin.Context) {
 
 	err := h.service.RemoveWorkspaceMember(c, id, userID)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrWorkspaceNotFound):
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Workspace not found",
-			})
-			return
-		case errors.Is(err, ErrUserNotFound):
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "User not found",
-			})
-			return
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code":    "FAILED_TO_REMOVE_WORKSPACE_MEMBER",
-				"message": err.Error(),
-			})
-			return
-		}
+		codeerror.HandleError(c, err)
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{

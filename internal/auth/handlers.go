@@ -1,11 +1,10 @@
 package auth
 
 import (
-	"errors"
+	codeerror "gin-api-1/internal/codeerror"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 )
 
 type handler struct {
@@ -19,37 +18,16 @@ func NewAuthHandler(service Service) *handler {
 }
 
 func (h *handler) Register(c *gin.Context) {
-
 	var payload registerPayload
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		if validationErrors, ok := errors.AsType[validator.ValidationErrors](err); ok {
-			errs := make(map[string]string)
-
-			for _, fieldErr := range validationErrors {
-				errs[fieldErr.Field()] = fieldErr.Error()
-			}
-
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    "VALIDATION_ERROR",
-				"message": "Validation failed",
-				"errors":  errs,
-			})
-			return
-		}
-
-		c.JSON(http.StatusBadRequest, gin.H{
-			"errors": err.Error(),
-		})
+		codeerror.HandleError(c, codeerror.NewBindingError(err))
 		return
 	}
 
 	user, err := h.service.Register(c, payload)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "USER_CREATION_FAILED",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -63,33 +41,13 @@ func (h *handler) Login(c *gin.Context) {
 	var payload loginPayload
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		if validationErrors, ok := errors.AsType[validator.ValidationErrors](err); ok {
-			errs := make(map[string]string)
-
-			for _, fieldErr := range validationErrors {
-				errs[fieldErr.Field()] = fieldErr.Error()
-			}
-
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    "VALIDATION_ERROR",
-				"message": "Validation failed",
-				"errors":  errs,
-			})
-			return
-		}
-
-		c.JSON(http.StatusBadRequest, gin.H{
-			"errors": err.Error(),
-		})
+		codeerror.HandleError(c, codeerror.NewBindingError(err))
 		return
 	}
 
 	user, err := h.service.Login(c, payload)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "USER_LOGIN_FAILED",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 

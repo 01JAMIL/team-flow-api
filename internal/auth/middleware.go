@@ -1,9 +1,9 @@
 package auth
 
 import (
-	"net/http"
 	"strings"
 
+	codeerror "gin-api-1/internal/codeerror"
 	"github.com/gin-gonic/gin"
 )
 
@@ -11,27 +11,21 @@ func AuthenticationMiddleware(service Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Authorization header is empty",
-			})
+			codeerror.HandleError(c, codeerror.New(codeerror.MissingToken, "Authorization header is missing"))
 			c.Abort()
 			return
 		}
 
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 		if token == authHeader {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Bearer token is invalid",
-			})
+			codeerror.HandleError(c, codeerror.New(codeerror.InvalidToken, "Bearer token is invalid"))
 			c.Abort()
 			return
 		}
 
 		claims, err := parseToken(token)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Invalid token",
-			})
+			codeerror.HandleError(c, codeerror.New(codeerror.InvalidToken, "Invalid token"))
 			c.Abort()
 			return
 		}
@@ -40,9 +34,7 @@ func AuthenticationMiddleware(service Service) gin.HandlerFunc {
 		user, err := service.GetUserById(c.Request.Context(), userID)
 
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "You are not authorized to access this resource",
-			})
+			codeerror.HandleError(c, codeerror.New(codeerror.StatusUnauthorized, "You are not authorized to access this resource"))
 			c.Abort()
 			return
 		}

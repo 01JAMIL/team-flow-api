@@ -1,13 +1,11 @@
 package projects
 
 import (
-	"errors"
-	"io"
+	codeerror "gin-api-1/internal/codeerror"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 )
 
 type handler struct {
@@ -24,66 +22,20 @@ func (h *handler) CreateProject(c *gin.Context) {
 	workspaceID := c.Param("id")
 
 	if err := h.service.WorkspaceExists(c, workspaceID); err != nil {
-		if errors.Is(err, ErrWorkspaceNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Workspace not found",
-			})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "FAILED_TO_CHECK_WORKSPACE",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
 	var payload createProjectPayload
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		if errors.Is(err, io.EOF) {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    "VALIDATION_ERROR",
-				"message": "Request body is required",
-			})
-			return
-		}
-
-		if validationErrors, ok := errors.AsType[validator.ValidationErrors](err); ok {
-			errs := make(map[string]string)
-
-			for _, fieldErr := range validationErrors {
-				errs[fieldErr.Field()] = fieldErr.Error()
-			}
-
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    "VALIDATION_ERROR",
-				"message": "Validation failed",
-				"errors":  errs,
-			})
-			return
-		}
-
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    "VALIDATION_ERROR",
-			"message": "Invalid request body",
-		})
+		codeerror.HandleError(c, codeerror.NewBindingError(err))
 		return
 	}
 
 	project, err := h.service.CreateProject(c, workspaceID, payload)
 	if err != nil {
-		if errors.Is(err, ErrWorkspaceNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Workspace not found",
-			})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "FAILED_TO_CREATE_PROJECT",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -108,17 +60,7 @@ func (h *handler) GetWorkspaceProjects(c *gin.Context) {
 
 	response, err := h.service.GetWorkspaceProjects(c, workspaceID, page, pageSize)
 	if err != nil {
-		if errors.Is(err, ErrWorkspaceNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Workspace not found",
-			})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "FAILED_TO_GET_WORKSPACE_PROJECTS",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -130,17 +72,7 @@ func (h *handler) GetProjectByID(c *gin.Context) {
 
 	project, err := h.service.GetProjectByID(c, projectID)
 	if err != nil {
-		if errors.Is(err, ErrProjectNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Project not found",
-			})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "FAILED_TO_GET_PROJECT",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -154,17 +86,7 @@ func (h *handler) DeleteProject(c *gin.Context) {
 
 	err := h.service.DeleteProject(c, projectID)
 	if err != nil {
-		if errors.Is(err, ErrProjectNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Project not found",
-			})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "FAILED_TO_DELETE_PROJECT",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -178,26 +100,13 @@ func (h *handler) UpdateProject(c *gin.Context) {
 
 	var payload updateProjectPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "Invalid request payload",
-			"error":   err.Error(),
-		})
+		codeerror.HandleError(c, codeerror.NewBindingError(err))
 		return
 	}
 
 	project, err := h.service.UpdateProject(c, projectID, payload)
 	if err != nil {
-		if errors.Is(err, ErrProjectNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Project not found",
-			})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "FAILED_TO_UPDATE_PROJECT",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 

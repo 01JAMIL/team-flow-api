@@ -2,17 +2,12 @@ package projects
 
 import (
 	"context"
-	"errors"
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
+	codeerror "gin-api-1/internal/codeerror"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-)
-
-var (
-	ErrWorkspaceNotFound = errors.New("workspace does not exist")
-	ErrProjectNotFound   = errors.New("project does not exist")
 )
 
 type Service interface {
@@ -39,7 +34,7 @@ func NewProjectsService(repo *repo.Queries, db *pgx.Conn) Service {
 func (s *svc) WorkspaceExists(ctx context.Context, workspaceID string) error {
 	_, err := s.repo.GetWorkspaceByID(ctx, workspaceID)
 	if err != nil {
-		return ErrWorkspaceNotFound
+		return codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 	return nil
 }
@@ -47,7 +42,7 @@ func (s *svc) WorkspaceExists(ctx context.Context, workspaceID string) error {
 func (s *svc) GetWorkspaceProjects(ctx context.Context, workspaceID string, page, pageSize int) (getWorkspaceProjectsResponse, error) {
 	_, err := s.repo.GetWorkspaceByID(ctx, workspaceID)
 	if err != nil {
-		return getWorkspaceProjectsResponse{}, ErrWorkspaceNotFound
+		return getWorkspaceProjectsResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 
 	rows, err := s.repo.GetWorkspaceProjects(ctx, repo.GetWorkspaceProjectsParams{
@@ -96,7 +91,7 @@ func (s *svc) GetWorkspaceProjects(ctx context.Context, workspaceID string, page
 func (s *svc) CreateProject(ctx context.Context, workspaceID string, payload createProjectPayload) (projectResponse, error) {
 	_, err := s.repo.GetWorkspaceByID(ctx, workspaceID)
 	if err != nil {
-		return projectResponse{}, ErrWorkspaceNotFound
+		return projectResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 
 	pk := uuid.New()
@@ -108,7 +103,7 @@ func (s *svc) CreateProject(ctx context.Context, workspaceID string, payload cre
 		WorkspaceID: pgtype.Text{String: workspaceID, Valid: true},
 	})
 	if err != nil {
-		return projectResponse{}, err
+		return projectResponse{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to create project", err)
 	}
 
 	return toProjectResponse(project), nil
@@ -117,12 +112,12 @@ func (s *svc) CreateProject(ctx context.Context, workspaceID string, payload cre
 func (s *svc) GetProjectByID(ctx context.Context, projectID string) (projectResponse, error) {
 	id, err := uuid.Parse(projectID)
 	if err != nil {
-		return projectResponse{}, err
+		return projectResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
 	}
 
 	project, err := s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
-		return projectResponse{}, ErrProjectNotFound
+		return projectResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
 	}
 
 	return toProjectResponse(project), nil
@@ -131,12 +126,12 @@ func (s *svc) GetProjectByID(ctx context.Context, projectID string) (projectResp
 func (s *svc) UpdateProject(ctx context.Context, projectID string, payload updateProjectPayload) (projectResponse, error) {
 	id, err := uuid.Parse(projectID)
 	if err != nil {
-		return projectResponse{}, err
+		return projectResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
 	}
 
 	_, err = s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
-		return projectResponse{}, ErrProjectNotFound
+		return projectResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
 	}
 
 	project, err := s.repo.UpdateProject(ctx, repo.UpdateProjectParams{
@@ -145,7 +140,7 @@ func (s *svc) UpdateProject(ctx context.Context, projectID string, payload updat
 		Description: payload.Description,
 	})
 	if err != nil {
-		return projectResponse{}, err
+		return projectResponse{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to update project", err)
 	}
 
 	return toProjectResponse(project), nil
@@ -154,15 +149,19 @@ func (s *svc) UpdateProject(ctx context.Context, projectID string, payload updat
 func (s *svc) DeleteProject(ctx context.Context, projectID string) error {
 	id, err := uuid.Parse(projectID)
 	if err != nil {
-		return err
+		return codeerror.New(codeerror.ProjectNotFound, "Project not found")
 	}
 
 	_, err = s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
-		return ErrProjectNotFound
+		return codeerror.New(codeerror.ProjectNotFound, "Project not found")
 	}
 
-	return s.repo.DeleteProject(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	if err := s.repo.DeleteProject(ctx, pgtype.UUID{Bytes: id, Valid: true}); err != nil {
+		return codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to delete project", err)
+	}
+
+	return nil
 }
 
 func toProjectResponse(project repo.Project) projectResponse {

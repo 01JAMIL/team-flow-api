@@ -1,14 +1,14 @@
 package workspace
 
 import (
-	"errors"
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	"gin-api-1/internal/auth"
+	codeerror "gin-api-1/internal/codeerror"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -28,24 +28,7 @@ func (h *handler) CreateWorkspace(c *gin.Context) {
 	var payload createWorkspacePayload
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		if validationErrors, ok := errors.AsType[validator.ValidationErrors](err); ok {
-			errs := make(map[string]string)
-
-			for _, fieldErr := range validationErrors {
-				errs[fieldErr.Field()] = fieldErr.Error()
-			}
-
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    "VALIDATION_ERROR",
-				"message": "Validation failed",
-				"errors":  errs,
-			})
-			return
-		}
-
-		c.JSON(http.StatusBadRequest, gin.H{
-			"errors": err.Error(),
-		})
+		codeerror.HandleError(c, codeerror.NewBindingError(err))
 		return
 	}
 
@@ -56,10 +39,7 @@ func (h *handler) CreateWorkspace(c *gin.Context) {
 	})
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "FAILED_TO_CREATE_WORKSPACE",
-			"message": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -73,21 +53,22 @@ func (h *handler) GetUserWorkspaceByID(c *gin.Context) {
 	id := c.Param("id")
 	loggedUser := c.MustGet("user").(auth.UserResponse)
 
-	var pgUUID pgtype.UUID
-	copy(pgUUID.Bytes[:], id[:])
+	uuidID, err := uuid.Parse(id)
+	if err != nil {
+		codeerror.HandleError(c, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found"))
+		return
+	}
 
 	workspace, err := h.service.GetUserWorkspaceByID(c, repo.GetUserWorkspaceByIDParams{
 		UserID: pgtype.Text{
 			String: loggedUser.ID,
 			Valid:  true,
 		},
-		ID: pgUUID,
+		ID: pgtype.UUID{Bytes: uuidID, Valid: true},
 	})
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Workspace not found",
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -115,9 +96,7 @@ func (h *handler) GetUserWorkspaces(c *gin.Context) {
 	}, page, pageSize)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -130,10 +109,7 @@ func (h *handler) UpdateWorkspace(c *gin.Context) {
 
 	var payload updateWorkspacePayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "Invalid request payload",
-			"error":   err.Error(),
-		})
+		codeerror.HandleError(c, codeerror.NewBindingError(err))
 		return
 	}
 
@@ -145,10 +121,7 @@ func (h *handler) UpdateWorkspace(c *gin.Context) {
 	})
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "Failed to update workspace",
-			"error":   err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
@@ -162,11 +135,14 @@ func (h *handler) DeleteWorkspace(c *gin.Context) {
 	id := c.Param("id")
 	loggedUser := c.MustGet("user").(auth.UserResponse)
 
-	var pgUUID pgtype.UUID
-	copy(pgUUID.Bytes[:], id[:])
+	uuidID, err := uuid.Parse(id)
+	if err != nil {
+		codeerror.HandleError(c, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found"))
+		return
+	}
 
-	err := h.service.DeleteWorkspace(c, repo.DeleteWorkspaceParams{
-		ID: pgUUID,
+	err = h.service.DeleteWorkspace(c, repo.DeleteWorkspaceParams{
+		ID: pgtype.UUID{Bytes: uuidID, Valid: true},
 		UserID: pgtype.Text{
 			String: loggedUser.ID,
 			Valid:  true,
@@ -174,10 +150,7 @@ func (h *handler) DeleteWorkspace(c *gin.Context) {
 	})
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "Failed to delete workspace",
-			"error":   err.Error(),
-		})
+		codeerror.HandleError(c, err)
 		return
 	}
 
