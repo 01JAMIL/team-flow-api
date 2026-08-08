@@ -1,6 +1,7 @@
 package projects
 
 import (
+	"gin-api-1/internal/auth"
 	codeerror "gin-api-1/internal/codeerror"
 	"net/http"
 	"strconv"
@@ -20,11 +21,7 @@ func NewProjectsHandler(service Service) *handler {
 
 func (h *handler) CreateProject(c *gin.Context) {
 	workspaceID := c.Param("id")
-
-	if err := h.service.WorkspaceExists(c, workspaceID); err != nil {
-		codeerror.HandleError(c, err)
-		return
-	}
+	loggedUser := c.MustGet("user").(auth.UserResponse)
 
 	var payload createProjectPayload
 
@@ -33,7 +30,7 @@ func (h *handler) CreateProject(c *gin.Context) {
 		return
 	}
 
-	project, err := h.service.CreateProject(c, workspaceID, payload)
+	project, err := h.service.CreateProject(c, workspaceID, loggedUser.ID, payload)
 	if err != nil {
 		codeerror.HandleError(c, err)
 		return

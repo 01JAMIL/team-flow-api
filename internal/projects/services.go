@@ -12,7 +12,7 @@ import (
 
 type Service interface {
 	WorkspaceExists(ctx context.Context, workspaceID string) error
-	CreateProject(ctx context.Context, workspaceID string, payload createProjectPayload) (projectResponse, error)
+	CreateProject(ctx context.Context, workspaceID string, loggedUserID string, payload createProjectPayload) (projectResponse, error)
 	GetWorkspaceProjects(ctx context.Context, workspaceID string, page, pageSize int) (getWorkspaceProjectsResponse, error)
 	GetProjectByID(ctx context.Context, projectID string) (projectResponse, error)
 	UpdateProject(ctx context.Context, projectID string, payload updateProjectPayload) (projectResponse, error)
@@ -88,10 +88,23 @@ func (s *svc) GetWorkspaceProjects(ctx context.Context, workspaceID string, page
 	}, nil
 }
 
-func (s *svc) CreateProject(ctx context.Context, workspaceID string, payload createProjectPayload) (projectResponse, error) {
+func (s *svc) CreateProject(ctx context.Context, workspaceID string, loggedUserID string, payload createProjectPayload) (projectResponse, error) {
 	_, err := s.repo.GetWorkspaceByID(ctx, workspaceID)
 	if err != nil {
 		return projectResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+	}
+
+	member, err := s.repo.GetMemberFromWorkspace(ctx, repo.GetMemberFromWorkspaceParams{
+		UserID:      pgtype.Text{String: loggedUserID, Valid: true},
+		WorkspaceID: pgtype.Text{String: workspaceID, Valid: true},
+	})
+
+	if err != nil {
+		return projectResponse{}, codeerror.New(codeerror.MemberNotFound, "Member not found")
+	}
+
+	if member.UserRole != "ADMIN" {
+		return projectResponse{}, codeerror.New(codeerror.StatusForbidden, "Only ADMIN can create projects")
 	}
 
 	pk := uuid.New()

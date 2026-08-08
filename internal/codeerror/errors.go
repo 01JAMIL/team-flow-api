@@ -41,6 +41,7 @@ const (
 	TaskNotFound        = "TASK_NOT_FOUND"
 	UserNotFound        = "USER_NOT_FOUND"
 	MemberAlreadyExists = "MEMBER_ALREADY_EXISTS"
+	MemberNotFound      = "MEMBER_NOT_FOUND"
 	InvalidDate         = "INVALID_DATE"
 )
 
@@ -153,7 +154,7 @@ func HTTPStatus(err error) int {
 		return http.StatusUnauthorized
 	case StatusForbidden:
 		return http.StatusForbidden
-	case StatusNotFound, WorkspaceNotFound, ProjectNotFound, TaskNotFound, UserNotFound:
+	case StatusNotFound, WorkspaceNotFound, ProjectNotFound, TaskNotFound, UserNotFound, MemberNotFound:
 		return http.StatusNotFound
 	case StatusConflict, UserAlreadyExist, MemberAlreadyExists:
 		return http.StatusConflict
