@@ -1,8 +1,8 @@
 -- +goose Up
 CREATE TABLE IF NOT EXISTS workspace_members (
     id UUID PRIMARY KEY,
-    user_id VARCHAR(255),
-    workspace_id VARCHAR(255),
+    user_id UUID NOT NULL,
+    workspace_id UUID NOT NULL,
     user_role TEXT NOT NULL CHECK (user_role IN ('ADMIN', 'MEMBER')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id),
