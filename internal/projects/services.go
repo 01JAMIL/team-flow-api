@@ -15,8 +15,8 @@ type Service interface {
 	CreateProject(ctx context.Context, workspaceID string, loggedUserID string, payload createProjectPayload) (projectResponse, error)
 	GetWorkspaceProjects(ctx context.Context, workspaceID string, page, pageSize int) (getWorkspaceProjectsResponse, error)
 	GetProjectByID(ctx context.Context, projectID string) (projectResponse, error)
-	UpdateProject(ctx context.Context, projectID string, payload updateProjectPayload) (projectResponse, error)
-	DeleteProject(ctx context.Context, projectID string) error
+	UpdateProject(ctx context.Context, projectID string, loggedUserID string, payload updateProjectPayload) (projectResponse, error)
+	DeleteProject(ctx context.Context, projectID string, loggedUserID string) error
 }
 
 type svc struct {
@@ -36,6 +36,22 @@ func (s *svc) WorkspaceExists(ctx context.Context, workspaceID string) error {
 	if err != nil {
 		return codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
+	return nil
+}
+
+func (s *svc) ensureAdminMember(ctx context.Context, workspaceID, loggedUserID, action string) error {
+	member, err := s.repo.GetMemberFromWorkspace(ctx, repo.GetMemberFromWorkspaceParams{
+		UserID:      pgtype.Text{String: loggedUserID, Valid: true},
+		WorkspaceID: pgtype.Text{String: workspaceID, Valid: true},
+	})
+	if err != nil {
+		return codeerror.New(codeerror.MemberNotFound, "Member not found")
+	}
+
+	if member.UserRole != "ADMIN" {
+		return codeerror.New(codeerror.StatusForbidden, "Only ADMIN can "+action)
+	}
+
 	return nil
 }
 
@@ -94,17 +110,8 @@ func (s *svc) CreateProject(ctx context.Context, workspaceID string, loggedUserI
 		return projectResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 
-	member, err := s.repo.GetMemberFromWorkspace(ctx, repo.GetMemberFromWorkspaceParams{
-		UserID:      pgtype.Text{String: loggedUserID, Valid: true},
-		WorkspaceID: pgtype.Text{String: workspaceID, Valid: true},
-	})
-
-	if err != nil {
-		return projectResponse{}, codeerror.New(codeerror.MemberNotFound, "Member not found")
-	}
-
-	if member.UserRole != "ADMIN" {
-		return projectResponse{}, codeerror.New(codeerror.StatusForbidden, "Only ADMIN can create projects")
+	if err := s.ensureAdminMember(ctx, workspaceID, loggedUserID, "create projects"); err != nil {
+		return projectResponse{}, err
 	}
 
 	pk := uuid.New()
@@ -136,18 +143,22 @@ func (s *svc) GetProjectByID(ctx context.Context, projectID string) (projectResp
 	return toProjectResponse(project), nil
 }
 
-func (s *svc) UpdateProject(ctx context.Context, projectID string, payload updateProjectPayload) (projectResponse, error) {
+func (s *svc) UpdateProject(ctx context.Context, projectID string, loggedUserID string, payload updateProjectPayload) (projectResponse, error) {
 	id, err := uuid.Parse(projectID)
 	if err != nil {
 		return projectResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
 	}
 
-	_, err = s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	project, err := s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
 		return projectResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
 	}
 
-	project, err := s.repo.UpdateProject(ctx, repo.UpdateProjectParams{
+	if err := s.ensureAdminMember(ctx, project.WorkspaceID.String, loggedUserID, "update projects"); err != nil {
+		return projectResponse{}, err
+	}
+
+	updated, err := s.repo.UpdateProject(ctx, repo.UpdateProjectParams{
 		ID:          pgtype.UUID{Bytes: id, Valid: true},
 		Name:        payload.Name,
 		Description: payload.Description,
@@ -156,18 +167,22 @@ func (s *svc) UpdateProject(ctx context.Context, projectID string, payload updat
 		return projectResponse{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to update project", err)
 	}
 
-	return toProjectResponse(project), nil
+	return toProjectResponse(updated), nil
 }
 
-func (s *svc) DeleteProject(ctx context.Context, projectID string) error {
+func (s *svc) DeleteProject(ctx context.Context, projectID string, loggedUserID string) error {
 	id, err := uuid.Parse(projectID)
 	if err != nil {
 		return codeerror.New(codeerror.ProjectNotFound, "Project not found")
 	}
 
-	_, err = s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	project, err := s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
 		return codeerror.New(codeerror.ProjectNotFound, "Project not found")
+	}
+
+	if err := s.ensureAdminMember(ctx, project.WorkspaceID.String, loggedUserID, "delete projects"); err != nil {
+		return err
 	}
 
 	if err := s.repo.DeleteProject(ctx, pgtype.UUID{Bytes: id, Valid: true}); err != nil {

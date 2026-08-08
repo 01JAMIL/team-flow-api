@@ -80,8 +80,9 @@ func (h *handler) GetProjectByID(c *gin.Context) {
 
 func (h *handler) DeleteProject(c *gin.Context) {
 	projectID := c.Param("projectID")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
 
-	err := h.service.DeleteProject(c, projectID)
+	err := h.service.DeleteProject(c, projectID, loggedUser.ID)
 	if err != nil {
 		codeerror.HandleError(c, err)
 		return
@@ -94,6 +95,7 @@ func (h *handler) DeleteProject(c *gin.Context) {
 
 func (h *handler) UpdateProject(c *gin.Context) {
 	projectID := c.Param("projectID")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
 
 	var payload updateProjectPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
@@ -101,7 +103,7 @@ func (h *handler) UpdateProject(c *gin.Context) {
 		return
 	}
 
-	project, err := h.service.UpdateProject(c, projectID, payload)
+	project, err := h.service.UpdateProject(c, projectID, loggedUser.ID, payload)
 	if err != nil {
 		codeerror.HandleError(c, err)
 		return
