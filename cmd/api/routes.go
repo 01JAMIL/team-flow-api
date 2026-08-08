@@ -5,6 +5,7 @@ import (
 	"gin-api-1/internal/auth"
 	"gin-api-1/internal/projects"
 	"gin-api-1/internal/tasks"
+	"gin-api-1/internal/websocket"
 	"gin-api-1/internal/workspace"
 	"gin-api-1/internal/workspacemembers"
 	"net/http"
@@ -41,6 +42,9 @@ func (app *application) routes() http.Handler {
 
 		v1.POST("/auth/register", authHandler.Register)
 		v1.POST("/auth/login", authHandler.Login)
+
+		// WebSocket Connection
+		v1.GET("/ws", websocket.Handler)
 	}
 
 	authGroup := v1.Group("/")
