@@ -33,6 +33,7 @@ func (app *application) routes() http.Handler {
 	tasksHandler := tasks.NewTasksHandler(tasksService)
 
 	messageService := messages.NewMessagesService(repo.New(app.db), app.db)
+	messagesHandler := messages.NewMessagesHandler(messageService)
 
 	/* Public routes */
 	v1 := r.Group("/api/v1")
@@ -77,6 +78,9 @@ func (app *application) routes() http.Handler {
 		authGroup.GET("/tasks/:id", tasksHandler.GetTaskByID)
 		authGroup.PATCH("/tasks/:id", tasksHandler.UpdateTask)
 		authGroup.DELETE("/tasks/:id", tasksHandler.DeleteTask)
+
+		/* Messages routes */
+		authGroup.GET("/messages/:userId", messagesHandler.GetMessagesBetweenUsers)
 
 		// WebSocket Connection
 		authGroup.GET("/ws", func(c *gin.Context) {

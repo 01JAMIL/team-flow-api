@@ -169,3 +169,15 @@ WHERE id = sqlc.arg('id') RETURNING *;
 -- name: CreateMessage :one
 INSERT INTO messages (id, sender_id, receiver_id, content)
 VALUES ($1, $2, $3, $4) RETURNING *;
+
+-- name: GetMessagesBetweenUsers :many
+SELECT count(*) OVER () AS total_count, id,
+       sender_id,
+       receiver_id,
+       content,
+       created_at
+FROM messages
+WHERE (sender_id = $1 AND receiver_id = $2)
+   OR (sender_id = $2 AND receiver_id = $1)
+ORDER BY created_at DESC LIMIT $3
+OFFSET $4;

@@ -260,6 +260,67 @@ func (q *Queries) GetMemberFromWorkspace(ctx context.Context, arg GetMemberFromW
 	return i, err
 }
 
+const getMessagesBetweenUsers = `-- name: GetMessagesBetweenUsers :many
+SELECT count(*) OVER () AS total_count, id,
+       sender_id,
+       receiver_id,
+       content,
+       created_at
+FROM messages
+WHERE (sender_id = $1 AND receiver_id = $2)
+   OR (sender_id = $2 AND receiver_id = $1)
+ORDER BY created_at DESC LIMIT $3
+OFFSET $4
+`
+
+type GetMessagesBetweenUsersParams struct {
+	SenderID   pgtype.UUID `json:"sender_id"`
+	ReceiverID pgtype.UUID `json:"receiver_id"`
+	Limit      int32       `json:"limit"`
+	Offset     int32       `json:"offset"`
+}
+
+type GetMessagesBetweenUsersRow struct {
+	TotalCount int64              `json:"total_count"`
+	ID         pgtype.UUID        `json:"id"`
+	SenderID   pgtype.UUID        `json:"sender_id"`
+	ReceiverID pgtype.UUID        `json:"receiver_id"`
+	Content    string             `json:"content"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetMessagesBetweenUsers(ctx context.Context, arg GetMessagesBetweenUsersParams) ([]GetMessagesBetweenUsersRow, error) {
+	rows, err := q.db.Query(ctx, getMessagesBetweenUsers,
+		arg.SenderID,
+		arg.ReceiverID,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetMessagesBetweenUsersRow
+	for rows.Next() {
+		var i GetMessagesBetweenUsersRow
+		if err := rows.Scan(
+			&i.TotalCount,
+			&i.ID,
+			&i.SenderID,
+			&i.ReceiverID,
+			&i.Content,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getProjectById = `-- name: GetProjectById :one
 SELECT id, name, description, workspace_id, created_at, updated_at
 FROM projects
