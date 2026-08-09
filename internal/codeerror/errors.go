@@ -44,6 +44,9 @@ const (
 	MemberNotFound      = "MEMBER_NOT_FOUND"
 	InvalidDate         = "INVALID_DATE"
 	InvalidUUID         = "INVALID_UUID"
+
+	// Messages Codes.
+	SelfMessageNotAllowed = "SELF_MESSAGE_NOT_ALLOWED"
 )
 
 // Error is the application error carrying a machine-readable Code and a
@@ -159,7 +162,7 @@ func HTTPStatus(err error) int {
 		return http.StatusNotFound
 	case StatusConflict, UserAlreadyExist, MemberAlreadyExists:
 		return http.StatusConflict
-	case StatusBadRequest, ValidationError, InvalidDate, InvalidUUID:
+	case StatusBadRequest, ValidationError, InvalidDate, InvalidUUID, SelfMessageNotAllowed:
 		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError

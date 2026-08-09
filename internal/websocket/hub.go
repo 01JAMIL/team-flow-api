@@ -83,6 +83,10 @@ func (client *Client) ReadPump(hub *Hub) {
 		}
 
 		hub.BroadcastMessage(payload.ReceiverID, data)
+
+		if payload.ReceiverID != client.userID {
+			hub.BroadcastMessage(client.userID, data)
+		}
 	}
 }
 

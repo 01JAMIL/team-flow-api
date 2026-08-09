@@ -37,6 +37,10 @@ func (s *svc) CreateMessage(ctx context.Context, senderID string, payload Create
 		return repo.Message{}, codeerror.New(codeerror.InvalidUUID, "Receiver ID is not a valid UUID")
 	}
 
+	if uuidSenderId == receiverID {
+		return repo.Message{}, codeerror.New(codeerror.SelfMessageNotAllowed, "You cannot send a message to yourself")
+	}
+
 	_, err = s.repo.GetUserById(ctx, pgtype.UUID{Bytes: receiverID, Valid: true})
 	if err != nil {
 		return repo.Message{}, codeerror.New(codeerror.UserNotFound, "User not found")
