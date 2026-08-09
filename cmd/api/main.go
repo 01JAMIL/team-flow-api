@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
+	"github.com/resend/resend-go/v3"
 )
 
 type databaseConfig struct {
@@ -21,6 +22,7 @@ type config struct {
 type application struct {
 	config config
 	db     *pgx.Conn
+	resend *resend.Client
 }
 
 func main() {
@@ -47,9 +49,12 @@ func main() {
 
 	log.Println("Database connected successfully")
 
+	client := resend.NewClient(env.GetEnvString("RESEND_API_KEY", "re_xx"))
+
 	app := &application{
 		config: cfg,
 		db:     conn,
+		resend: client,
 	}
 
 	err := app.serve(app.routes())

@@ -3,6 +3,7 @@ package main
 import (
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	"gin-api-1/internal/auth"
+	"gin-api-1/internal/email"
 	"gin-api-1/internal/messages"
 	"gin-api-1/internal/projects"
 	"gin-api-1/internal/tasks"
@@ -17,8 +18,10 @@ import (
 func (app *application) routes() http.Handler {
 	r := gin.Default()
 
+	emailService := email.NewEmailService(app.resend)
+
 	authService := auth.NewAuthService(repo.New(app.db), app.db)
-	authHandler := auth.NewAuthHandler(authService)
+	authHandler := auth.NewAuthHandler(authService, *emailService)
 
 	workspaceService := workspace.NewWorkspaceService(repo.New(app.db), app.db)
 	workspaceHandler := workspace.NewWorkspaceHandler(workspaceService)
