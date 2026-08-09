@@ -1,6 +1,8 @@
 package websocket
 
 import (
+	"gin-api-1/internal/auth"
+	"gin-api-1/internal/messages"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -19,15 +21,18 @@ var upgrader = websocket.Upgrader{
 
 var hub = NewHub()
 
-func Handler(c *gin.Context) {
+func Handler(c *gin.Context, service messages.Service) {
+	loggedUser := c.MustGet("user").(auth.UserResponse)
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
 	}
 
 	client := &Client{
-		conn: conn,
-		send: make(chan []byte),
+		conn:    conn,
+		send:    make(chan []byte),
+		userID:  loggedUser.ID,
+		service: service,
 	}
 
 	hub.AddClient(client)

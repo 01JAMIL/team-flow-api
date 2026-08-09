@@ -50,8 +50,8 @@ func (s *svc) AddWorkspaceMember(ctx context.Context, workspaceID string, payloa
 	}
 
 	_, err = s.repo.GetMemberFromWorkspace(ctx, repo.GetMemberFromWorkspaceParams{
-		UserID:      pgtype.Text{String: payload.UserID, Valid: true},
-		WorkspaceID: pgtype.Text{String: workspaceID, Valid: true},
+		UserID:      pgtype.UUID{Bytes: userUUID, Valid: true},
+		WorkspaceID: pgtype.UUID{Bytes: workspaceUUID, Valid: true},
 	})
 
 	if err == nil {
@@ -62,8 +62,8 @@ func (s *svc) AddWorkspaceMember(ctx context.Context, workspaceID string, payloa
 
 	return s.repo.AddWorkspaceMember(ctx, repo.AddWorkspaceMemberParams{
 		ID:          pgtype.UUID{Bytes: pk, Valid: true},
-		UserID:      pgtype.Text{String: payload.UserID, Valid: true},
-		WorkspaceID: pgtype.Text{String: workspaceID, Valid: true},
+		UserID:      pgtype.UUID{Bytes: userUUID, Valid: true},
+		WorkspaceID: pgtype.UUID{Bytes: workspaceUUID, Valid: true},
 		UserRole:    payload.UserRole,
 	})
 }
@@ -90,8 +90,8 @@ func (s *svc) RemoveWorkspaceMember(ctx context.Context, workspaceID, userID str
 	}
 
 	return s.repo.DeleteMemberFromWorkspace(ctx, repo.DeleteMemberFromWorkspaceParams{
-		UserID:      pgtype.Text{String: userID, Valid: true},
-		WorkspaceID: pgtype.Text{String: workspaceID, Valid: true},
+		UserID:      pgtype.UUID{Bytes: userUUID, Valid: true},
+		WorkspaceID: pgtype.UUID{Bytes: workspaceUUID, Valid: true},
 	})
 }
 
@@ -107,7 +107,7 @@ func (s *svc) GetWorkspaceMembers(ctx context.Context, workspaceID string, page,
 	}
 
 	rows, err := s.repo.GetWorkspaceMembers(ctx, repo.GetWorkspaceMembersParams{
-		WorkspaceID: pgtype.Text{String: workspaceID, Valid: true},
+		WorkspaceID: pgtype.UUID{Bytes: workspaceUUID, Valid: true},
 		Limit:       int32(pageSize),
 		Offset:      int32((page - 1) * pageSize),
 	})
@@ -126,7 +126,7 @@ func (s *svc) GetWorkspaceMembers(ctx context.Context, workspaceID string, page,
 		members = append(members, workspaceMemberResponse{
 			ID:          row.MemberID.String(),
 			UserID:      row.UserID.String(),
-			WorkspaceID: row.WorkspaceID.String,
+			WorkspaceID: row.WorkspaceID.String(),
 			UserRole:    row.UserRole,
 			CreatedAt:   row.MemberCreatedAt,
 			User: memberUserResponse{
@@ -150,7 +150,7 @@ func (s *svc) GetWorkspaceMembers(ctx context.Context, workspaceID string, page,
 			ID:            workspace.ID.String(),
 			WorkspaceName: workspace.WorkspaceName,
 			Description:   workspace.Description,
-			UserID:        workspace.UserID.String,
+			UserID:        workspace.UserID.String(),
 			CreatedAt:     workspace.CreatedAt,
 			UpdatedAt:     workspace.UpdatedAt,
 		},

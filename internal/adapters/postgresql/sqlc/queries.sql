@@ -128,8 +128,7 @@ OFFSET $3;
 INSERT INTO tasks (id, name, description, start_date, end_date, status, priority, project_id, assignee_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
 -- name: GetProjectTasks :many
-SELECT count(*) OVER () AS total_count,
-       id,
+SELECT count(*) OVER () AS total_count, id,
        name,
        description,
        start_date,
@@ -142,8 +141,8 @@ SELECT count(*) OVER () AS total_count,
        updated_at
 FROM tasks
 WHERE project_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
+ORDER BY created_at DESC LIMIT $2
+OFFSET $3;
 
 -- name: GetTaskById :one
 SELECT *
@@ -166,3 +165,7 @@ SET name        = COALESCE(sqlc.narg('name'), name),
     assignee_id = COALESCE(sqlc.narg('assignee_id'), assignee_id),
     updated_at  = now()
 WHERE id = sqlc.arg('id') RETURNING *;
+
+-- name: CreateMessage :one
+INSERT INTO messages (id, sender_id, receiver_id, content)
+VALUES ($1, $2, $3, $4) RETURNING *;

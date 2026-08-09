@@ -59,12 +59,15 @@ func (h *handler) GetUserWorkspaceByID(c *gin.Context) {
 		return
 	}
 
+	userID, err := uuid.Parse(loggedUser.ID)
+	if err != nil {
+		codeerror.HandleError(c, codeerror.New(codeerror.UserNotFound, "User not found"))
+		return
+	}
+
 	workspace, err := h.service.GetUserWorkspaceByID(c, repo.GetUserWorkspaceByIDParams{
-		UserID: pgtype.Text{
-			String: loggedUser.ID,
-			Valid:  true,
-		},
-		ID: pgtype.UUID{Bytes: uuidID, Valid: true},
+		UserID: pgtype.UUID{Bytes: userID, Valid: true},
+		ID:     pgtype.UUID{Bytes: uuidID, Valid: true},
 	})
 
 	if err != nil {
@@ -90,10 +93,13 @@ func (h *handler) GetUserWorkspaces(c *gin.Context) {
 		pageSize = DefaultPageSize
 	}
 
-	response, err := h.service.GetUserWorkspaces(c, pgtype.Text{
-		String: loggedUser.ID,
-		Valid:  true,
-	}, page, pageSize)
+	userID, err := uuid.Parse(loggedUser.ID)
+	if err != nil {
+		codeerror.HandleError(c, codeerror.New(codeerror.UserNotFound, "User not found"))
+		return
+	}
+
+	response, err := h.service.GetUserWorkspaces(c, pgtype.UUID{Bytes: userID, Valid: true}, page, pageSize)
 
 	if err != nil {
 		codeerror.HandleError(c, err)
@@ -141,12 +147,15 @@ func (h *handler) DeleteWorkspace(c *gin.Context) {
 		return
 	}
 
+	userID, err := uuid.Parse(loggedUser.ID)
+	if err != nil {
+		codeerror.HandleError(c, codeerror.New(codeerror.UserNotFound, "User not found"))
+		return
+	}
+
 	err = h.service.DeleteWorkspace(c, repo.DeleteWorkspaceParams{
-		ID: pgtype.UUID{Bytes: uuidID, Valid: true},
-		UserID: pgtype.Text{
-			String: loggedUser.ID,
-			Valid:  true,
-		},
+		ID:     pgtype.UUID{Bytes: uuidID, Valid: true},
+		UserID: pgtype.UUID{Bytes: userID, Valid: true},
 	})
 
 	if err != nil {

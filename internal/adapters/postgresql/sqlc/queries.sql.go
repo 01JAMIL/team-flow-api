@@ -18,8 +18,8 @@ VALUES ($1, $2, $3, $4) RETURNING id, user_id, workspace_id, user_role, created_
 
 type AddWorkspaceMemberParams struct {
 	ID          pgtype.UUID `json:"id"`
-	UserID      pgtype.Text `json:"user_id"`
-	WorkspaceID pgtype.Text `json:"workspace_id"`
+	UserID      pgtype.UUID `json:"user_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
 	UserRole    string      `json:"user_role"`
 }
 
@@ -41,6 +41,36 @@ func (q *Queries) AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMember
 	return i, err
 }
 
+const createMessage = `-- name: CreateMessage :one
+INSERT INTO messages (id, sender_id, receiver_id, content)
+VALUES ($1, $2, $3, $4) RETURNING id, sender_id, receiver_id, content, created_at
+`
+
+type CreateMessageParams struct {
+	ID         pgtype.UUID `json:"id"`
+	SenderID   pgtype.UUID `json:"sender_id"`
+	ReceiverID pgtype.UUID `json:"receiver_id"`
+	Content    string      `json:"content"`
+}
+
+func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error) {
+	row := q.db.QueryRow(ctx, createMessage,
+		arg.ID,
+		arg.SenderID,
+		arg.ReceiverID,
+		arg.Content,
+	)
+	var i Message
+	err := row.Scan(
+		&i.ID,
+		&i.SenderID,
+		&i.ReceiverID,
+		&i.Content,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createProject = `-- name: CreateProject :one
 INSERT INTO projects (id, name, description, workspace_id)
 VALUES ($1, $2, $3, $4) RETURNING id, name, description, workspace_id, created_at, updated_at
@@ -50,7 +80,7 @@ type CreateProjectParams struct {
 	ID          pgtype.UUID `json:"id"`
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
-	WorkspaceID pgtype.Text `json:"workspace_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
 }
 
 func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error) {
@@ -86,7 +116,7 @@ type CreateTaskParams struct {
 	Status      string      `json:"status"`
 	Priority    string      `json:"priority"`
 	ProjectID   pgtype.UUID `json:"project_id"`
-	AssigneeID  pgtype.Text `json:"assignee_id"`
+	AssigneeID  pgtype.UUID `json:"assignee_id"`
 }
 
 func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error) {
@@ -127,7 +157,7 @@ type CreateWorkspaceParams struct {
 	ID            pgtype.UUID `json:"id"`
 	WorkspaceName string      `json:"workspace_name"`
 	Description   string      `json:"description"`
-	UserID        pgtype.Text `json:"user_id"`
+	UserID        pgtype.UUID `json:"user_id"`
 }
 
 func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error) {
@@ -157,8 +187,8 @@ WHERE user_id = $1
 `
 
 type DeleteMemberFromWorkspaceParams struct {
-	UserID      pgtype.Text `json:"user_id"`
-	WorkspaceID pgtype.Text `json:"workspace_id"`
+	UserID      pgtype.UUID `json:"user_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
 }
 
 func (q *Queries) DeleteMemberFromWorkspace(ctx context.Context, arg DeleteMemberFromWorkspaceParams) error {
@@ -197,7 +227,7 @@ WHERE id = $1
 
 type DeleteWorkspaceParams struct {
 	ID     pgtype.UUID `json:"id"`
-	UserID pgtype.Text `json:"user_id"`
+	UserID pgtype.UUID `json:"user_id"`
 }
 
 func (q *Queries) DeleteWorkspace(ctx context.Context, arg DeleteWorkspaceParams) error {
@@ -213,8 +243,8 @@ WHERE user_id = $1
 `
 
 type GetMemberFromWorkspaceParams struct {
-	UserID      pgtype.Text `json:"user_id"`
-	WorkspaceID pgtype.Text `json:"workspace_id"`
+	UserID      pgtype.UUID `json:"user_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
 }
 
 func (q *Queries) GetMemberFromWorkspace(ctx context.Context, arg GetMemberFromWorkspaceParams) (WorkspaceMember, error) {
@@ -251,8 +281,7 @@ func (q *Queries) GetProjectById(ctx context.Context, id pgtype.UUID) (Project, 
 }
 
 const getProjectTasks = `-- name: GetProjectTasks :many
-SELECT count(*) OVER () AS total_count,
-       id,
+SELECT count(*) OVER () AS total_count, id,
        name,
        description,
        start_date,
@@ -265,8 +294,8 @@ SELECT count(*) OVER () AS total_count,
        updated_at
 FROM tasks
 WHERE project_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
+ORDER BY created_at DESC LIMIT $2
+OFFSET $3
 `
 
 type GetProjectTasksParams struct {
@@ -285,7 +314,7 @@ type GetProjectTasksRow struct {
 	Status      string             `json:"status"`
 	Priority    string             `json:"priority"`
 	ProjectID   pgtype.UUID        `json:"project_id"`
-	AssigneeID  pgtype.Text        `json:"assignee_id"`
+	AssigneeID  pgtype.UUID        `json:"assignee_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
@@ -398,7 +427,7 @@ WHERE user_id = $1
 `
 
 type GetUserWorkspaceByIDParams struct {
-	UserID pgtype.Text `json:"user_id"`
+	UserID pgtype.UUID `json:"user_id"`
 	ID     pgtype.UUID `json:"id"`
 }
 
@@ -430,7 +459,7 @@ OFFSET $3
 `
 
 type GetUserWorkspacesParams struct {
-	UserID pgtype.Text `json:"user_id"`
+	UserID pgtype.UUID `json:"user_id"`
 	Limit  int32       `json:"limit"`
 	Offset int32       `json:"offset"`
 }
@@ -440,7 +469,7 @@ type GetUserWorkspacesRow struct {
 	ID            pgtype.UUID        `json:"id"`
 	WorkspaceName string             `json:"workspace_name"`
 	Description   string             `json:"description"`
-	UserID        pgtype.Text        `json:"user_id"`
+	UserID        pgtype.UUID        `json:"user_id"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
@@ -532,7 +561,7 @@ OFFSET $3
 `
 
 type GetWorkspaceMembersParams struct {
-	WorkspaceID pgtype.Text `json:"workspace_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
 	Limit       int32       `json:"limit"`
 	Offset      int32       `json:"offset"`
 }
@@ -540,7 +569,7 @@ type GetWorkspaceMembersParams struct {
 type GetWorkspaceMembersRow struct {
 	TotalCount      int64              `json:"total_count"`
 	MemberID        pgtype.UUID        `json:"member_id"`
-	WorkspaceID     pgtype.Text        `json:"workspace_id"`
+	WorkspaceID     pgtype.UUID        `json:"workspace_id"`
 	UserRole        string             `json:"user_role"`
 	MemberCreatedAt pgtype.Timestamptz `json:"member_created_at"`
 	UserID          pgtype.UUID        `json:"user_id"`
@@ -597,7 +626,7 @@ OFFSET $3
 `
 
 type GetWorkspaceProjectsParams struct {
-	WorkspaceID pgtype.Text `json:"workspace_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
 	Limit       int32       `json:"limit"`
 	Offset      int32       `json:"offset"`
 }
@@ -607,7 +636,7 @@ type GetWorkspaceProjectsRow struct {
 	ID          pgtype.UUID        `json:"id"`
 	Name        string             `json:"name"`
 	Description string             `json:"description"`
-	WorkspaceID pgtype.Text        `json:"workspace_id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
@@ -722,7 +751,7 @@ type UpdateTaskParams struct {
 	EndDate     pgtype.Date `json:"end_date"`
 	Status      pgtype.Text `json:"status"`
 	Priority    pgtype.Text `json:"priority"`
-	AssigneeID  pgtype.Text `json:"assignee_id"`
+	AssigneeID  pgtype.UUID `json:"assignee_id"`
 	ID          pgtype.UUID `json:"id"`
 }
 
@@ -765,7 +794,7 @@ WHERE id = $1
 
 type UpdateWorkspaceParams struct {
 	ID            pgtype.UUID `json:"id"`
-	UserID        pgtype.Text `json:"user_id"`
+	UserID        pgtype.UUID `json:"user_id"`
 	WorkspaceName string      `json:"workspace_name"`
 	Description   string      `json:"description"`
 }

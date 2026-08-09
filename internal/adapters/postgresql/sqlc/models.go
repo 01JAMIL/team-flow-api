@@ -8,11 +8,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Message struct {
+	ID         pgtype.UUID        `json:"id"`
+	SenderID   pgtype.UUID        `json:"sender_id"`
+	ReceiverID pgtype.UUID        `json:"receiver_id"`
+	Content    string             `json:"content"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type Project struct {
 	ID          pgtype.UUID        `json:"id"`
 	Name        string             `json:"name"`
 	Description string             `json:"description"`
-	WorkspaceID pgtype.Text        `json:"workspace_id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
@@ -26,7 +34,7 @@ type Task struct {
 	Status      string             `json:"status"`
 	Priority    string             `json:"priority"`
 	ProjectID   pgtype.UUID        `json:"project_id"`
-	AssigneeID  pgtype.Text        `json:"assignee_id"`
+	AssigneeID  pgtype.UUID        `json:"assignee_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
@@ -45,15 +53,15 @@ type Workspace struct {
 	ID            pgtype.UUID        `json:"id"`
 	WorkspaceName string             `json:"workspace_name"`
 	Description   string             `json:"description"`
-	UserID        pgtype.Text        `json:"user_id"`
+	UserID        pgtype.UUID        `json:"user_id"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type WorkspaceMember struct {
 	ID          pgtype.UUID        `json:"id"`
-	UserID      pgtype.Text        `json:"user_id"`
-	WorkspaceID pgtype.Text        `json:"workspace_id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
 	UserRole    string             `json:"user_role"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }

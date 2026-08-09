@@ -43,6 +43,7 @@ const (
 	MemberAlreadyExists = "MEMBER_ALREADY_EXISTS"
 	MemberNotFound      = "MEMBER_NOT_FOUND"
 	InvalidDate         = "INVALID_DATE"
+	InvalidUUID         = "INVALID_UUID"
 )
 
 // Error is the application error carrying a machine-readable Code and a
@@ -158,7 +159,7 @@ func HTTPStatus(err error) int {
 		return http.StatusNotFound
 	case StatusConflict, UserAlreadyExist, MemberAlreadyExists:
 		return http.StatusConflict
-	case StatusBadRequest, ValidationError, InvalidDate:
+	case StatusBadRequest, ValidationError, InvalidDate, InvalidUUID:
 		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError

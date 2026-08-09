@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) (WorkspaceMember, error)
+	CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error)
 	CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error)
 	CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)

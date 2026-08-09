@@ -3,6 +3,7 @@ package main
 import (
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	"gin-api-1/internal/auth"
+	"gin-api-1/internal/messages"
 	"gin-api-1/internal/projects"
 	"gin-api-1/internal/tasks"
 	"gin-api-1/internal/websocket"
@@ -31,6 +32,8 @@ func (app *application) routes() http.Handler {
 	tasksService := tasks.NewTasksService(repo.New(app.db), app.db)
 	tasksHandler := tasks.NewTasksHandler(tasksService)
 
+	messageService := messages.NewMessagesService(repo.New(app.db), app.db)
+
 	/* Public routes */
 	v1 := r.Group("/api/v1")
 	{
@@ -42,9 +45,6 @@ func (app *application) routes() http.Handler {
 
 		v1.POST("/auth/register", authHandler.Register)
 		v1.POST("/auth/login", authHandler.Login)
-
-		// WebSocket Connection
-		v1.GET("/ws", websocket.Handler)
 	}
 
 	authGroup := v1.Group("/")
@@ -77,6 +77,11 @@ func (app *application) routes() http.Handler {
 		authGroup.GET("/tasks/:id", tasksHandler.GetTaskByID)
 		authGroup.PATCH("/tasks/:id", tasksHandler.UpdateTask)
 		authGroup.DELETE("/tasks/:id", tasksHandler.DeleteTask)
+
+		// WebSocket Connection
+		authGroup.GET("/ws", func(c *gin.Context) {
+			websocket.Handler(c, messageService)
+		})
 	}
 
 	return r

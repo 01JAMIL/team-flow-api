@@ -44,7 +44,7 @@ func (s *svc) CreateTask(ctx context.Context, projectID string, payload createTa
 		return taskResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
 	}
 
-	var assigneeID pgtype.Text
+	var assigneeID pgtype.UUID
 	if payload.AssigneeID != nil {
 		userUUID, err := uuid.Parse(*payload.AssigneeID)
 		if err != nil {
@@ -56,7 +56,7 @@ func (s *svc) CreateTask(ctx context.Context, projectID string, payload createTa
 			return taskResponse{}, codeerror.New(codeerror.UserNotFound, "User not found")
 		}
 
-		assigneeID = pgtype.Text{String: *payload.AssigneeID, Valid: true}
+		assigneeID = pgtype.UUID{Bytes: userUUID, Valid: true}
 	}
 
 	startDate, err := parseDate(payload.StartDate)
@@ -112,7 +112,7 @@ func (s *svc) UpdateTask(ctx context.Context, taskID string, payload updateTaskP
 		return taskResponse{}, codeerror.New(codeerror.TaskNotFound, "Task not found")
 	}
 
-	var assigneeID pgtype.Text
+	var assigneeID pgtype.UUID
 	if payload.AssigneeID != nil {
 		assigneeUUID, err := uuid.Parse(*payload.AssigneeID)
 		if err != nil {
@@ -124,7 +124,7 @@ func (s *svc) UpdateTask(ctx context.Context, taskID string, payload updateTaskP
 			return taskResponse{}, codeerror.New(codeerror.UserNotFound, "User not found")
 		}
 
-		assigneeID = pgtype.Text{String: *payload.AssigneeID, Valid: true}
+		assigneeID = pgtype.UUID{Bytes: assigneeUUID, Valid: true}
 	}
 
 	startDate, err := parseDatePtr(payload.StartDate)
@@ -209,7 +209,7 @@ func (s *svc) GetProjectTasks(ctx context.Context, projectID string, page, pageS
 			Status:      row.Status,
 			Priority:    row.Priority,
 			ProjectID:   row.ProjectID.String(),
-			AssigneeID:  row.AssigneeID,
+			AssigneeID:  pgtype.Text{String: row.AssigneeID.String(), Valid: row.AssigneeID.Valid},
 			CreatedAt:   row.CreatedAt,
 			UpdatedAt:   row.UpdatedAt,
 		})
@@ -270,7 +270,7 @@ func toTaskResponse(task repo.Task) taskResponse {
 		Status:      task.Status,
 		Priority:    task.Priority,
 		ProjectID:   task.ProjectID.String(),
-		AssigneeID:  task.AssigneeID,
+		AssigneeID:  pgtype.Text{String: task.AssigneeID.String(), Valid: task.AssigneeID.Valid},
 		CreatedAt:   task.CreatedAt,
 		UpdatedAt:   task.UpdatedAt,
 	}

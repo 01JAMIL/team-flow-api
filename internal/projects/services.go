@@ -40,9 +40,19 @@ func (s *svc) WorkspaceExists(ctx context.Context, workspaceID string) error {
 }
 
 func (s *svc) ensureAdminMember(ctx context.Context, workspaceID, loggedUserID, action string) error {
+	workspaceUUID, err := uuid.Parse(workspaceID)
+	if err != nil {
+		return codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+	}
+
+	userUUID, err := uuid.Parse(loggedUserID)
+	if err != nil {
+		return codeerror.New(codeerror.UserNotFound, "User not found")
+	}
+
 	member, err := s.repo.GetMemberFromWorkspace(ctx, repo.GetMemberFromWorkspaceParams{
-		UserID:      pgtype.Text{String: loggedUserID, Valid: true},
-		WorkspaceID: pgtype.Text{String: workspaceID, Valid: true},
+		UserID:      pgtype.UUID{Bytes: userUUID, Valid: true},
+		WorkspaceID: pgtype.UUID{Bytes: workspaceUUID, Valid: true},
 	})
 	if err != nil {
 		return codeerror.New(codeerror.MemberNotFound, "Member not found")
@@ -56,13 +66,18 @@ func (s *svc) ensureAdminMember(ctx context.Context, workspaceID, loggedUserID, 
 }
 
 func (s *svc) GetWorkspaceProjects(ctx context.Context, workspaceID string, page, pageSize int) (getWorkspaceProjectsResponse, error) {
-	_, err := s.repo.GetWorkspaceByID(ctx, workspaceID)
+	workspaceUUID, err := uuid.Parse(workspaceID)
+	if err != nil {
+		return getWorkspaceProjectsResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+	}
+
+	_, err = s.repo.GetWorkspaceByID(ctx, workspaceID)
 	if err != nil {
 		return getWorkspaceProjectsResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 
 	rows, err := s.repo.GetWorkspaceProjects(ctx, repo.GetWorkspaceProjectsParams{
-		WorkspaceID: pgtype.Text{String: workspaceID, Valid: true},
+		WorkspaceID: pgtype.UUID{Bytes: workspaceUUID, Valid: true},
 		Limit:       int32(pageSize),
 		Offset:      int32((page - 1) * pageSize),
 	})
@@ -82,7 +97,7 @@ func (s *svc) GetWorkspaceProjects(ctx context.Context, workspaceID string, page
 			ID:          row.ID.String(),
 			Name:        row.Name,
 			Description: row.Description,
-			WorkspaceID: row.WorkspaceID.String,
+			WorkspaceID: row.WorkspaceID.String(),
 			CreatedAt:   row.CreatedAt,
 			UpdatedAt:   row.UpdatedAt,
 		})
@@ -105,7 +120,12 @@ func (s *svc) GetWorkspaceProjects(ctx context.Context, workspaceID string, page
 }
 
 func (s *svc) CreateProject(ctx context.Context, workspaceID string, loggedUserID string, payload createProjectPayload) (projectResponse, error) {
-	_, err := s.repo.GetWorkspaceByID(ctx, workspaceID)
+	workspaceUUID, err := uuid.Parse(workspaceID)
+	if err != nil {
+		return projectResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+	}
+
+	_, err = s.repo.GetWorkspaceByID(ctx, workspaceID)
 	if err != nil {
 		return projectResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
@@ -120,7 +140,7 @@ func (s *svc) CreateProject(ctx context.Context, workspaceID string, loggedUserI
 		ID:          pgtype.UUID{Bytes: pk, Valid: true},
 		Name:        payload.Name,
 		Description: payload.Description,
-		WorkspaceID: pgtype.Text{String: workspaceID, Valid: true},
+		WorkspaceID: pgtype.UUID{Bytes: workspaceUUID, Valid: true},
 	})
 	if err != nil {
 		return projectResponse{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to create project", err)
@@ -154,7 +174,7 @@ func (s *svc) UpdateProject(ctx context.Context, projectID string, loggedUserID 
 		return projectResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
 	}
 
-	if err := s.ensureAdminMember(ctx, project.WorkspaceID.String, loggedUserID, "update projects"); err != nil {
+	if err := s.ensureAdminMember(ctx, project.WorkspaceID.String(), loggedUserID, "update projects"); err != nil {
 		return projectResponse{}, err
 	}
 
@@ -181,7 +201,7 @@ func (s *svc) DeleteProject(ctx context.Context, projectID string, loggedUserID 
 		return codeerror.New(codeerror.ProjectNotFound, "Project not found")
 	}
 
-	if err := s.ensureAdminMember(ctx, project.WorkspaceID.String, loggedUserID, "delete projects"); err != nil {
+	if err := s.ensureAdminMember(ctx, project.WorkspaceID.String(), loggedUserID, "delete projects"); err != nil {
 		return err
 	}
 
@@ -197,7 +217,7 @@ func toProjectResponse(project repo.Project) projectResponse {
 		ID:          project.ID.String(),
 		Name:        project.Name,
 		Description: project.Description,
-		WorkspaceID: project.WorkspaceID.String,
+		WorkspaceID: project.WorkspaceID.String(),
 		CreatedAt:   project.CreatedAt,
 		UpdatedAt:   project.UpdatedAt,
 	}
