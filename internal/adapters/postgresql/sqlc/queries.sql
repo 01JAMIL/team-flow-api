@@ -181,3 +181,8 @@ WHERE (sender_id = $1 AND receiver_id = $2)
    OR (sender_id = $2 AND receiver_id = $1)
 ORDER BY created_at DESC LIMIT $3
 OFFSET $4;
+
+-- name: UpdateWorkspaceStripeCustomer :one
+UPDATE workspaces
+SET stripe_customer_id = $2
+WHERE id = $1 RETURNING *;

@@ -37,6 +37,7 @@ type Querier interface {
 	UpdateProject(ctx context.Context, arg UpdateProjectParams) (Project, error)
 	UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, error)
 	UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) (Workspace, error)
+	UpdateWorkspaceStripeCustomer(ctx context.Context, arg UpdateWorkspaceStripeCustomerParams) (Workspace, error)
 }
 
 var _ Querier = (*Queries)(nil)

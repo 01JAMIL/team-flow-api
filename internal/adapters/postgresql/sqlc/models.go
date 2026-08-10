@@ -50,12 +50,13 @@ type User struct {
 }
 
 type Workspace struct {
-	ID            pgtype.UUID        `json:"id"`
-	WorkspaceName string             `json:"workspace_name"`
-	Description   string             `json:"description"`
-	UserID        pgtype.UUID        `json:"user_id"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ID               pgtype.UUID        `json:"id"`
+	WorkspaceName    string             `json:"workspace_name"`
+	Description      string             `json:"description"`
+	UserID           pgtype.UUID        `json:"user_id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	StripeCustomerID pgtype.Text        `json:"stripe_customer_id"`
 }
 
 type WorkspaceMember struct {

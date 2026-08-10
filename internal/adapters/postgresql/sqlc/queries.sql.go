@@ -150,7 +150,7 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, e
 
 const createWorkspace = `-- name: CreateWorkspace :one
 INSERT INTO workspaces (id, workspace_name, description, user_id)
-VALUES ($1, $2, $3, $4) RETURNING id, workspace_name, description, user_id, created_at, updated_at
+VALUES ($1, $2, $3, $4) RETURNING id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
 `
 
 type CreateWorkspaceParams struct {
@@ -175,6 +175,7 @@ func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StripeCustomerID,
 	)
 	return i, err
 }
@@ -481,7 +482,7 @@ func (q *Queries) GetUserById(ctx context.Context, id pgtype.UUID) (User, error)
 }
 
 const getUserWorkspaceByID = `-- name: GetUserWorkspaceByID :one
-SELECT id, workspace_name, description, user_id, created_at, updated_at
+SELECT id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
 FROM workspaces
 WHERE user_id = $1
   AND id = $2
@@ -502,6 +503,7 @@ func (q *Queries) GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspace
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StripeCustomerID,
 	)
 	return i, err
 }
@@ -564,7 +566,7 @@ func (q *Queries) GetUserWorkspaces(ctx context.Context, arg GetUserWorkspacesPa
 }
 
 const getWorkspaceByID = `-- name: GetWorkspaceByID :one
-SELECT id, workspace_name, description, user_id, created_at, updated_at
+SELECT id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
 FROM workspaces
 WHERE id = $1::varchar
 `
@@ -579,12 +581,13 @@ func (q *Queries) GetWorkspaceByID(ctx context.Context, dollar_1 string) (Worksp
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StripeCustomerID,
 	)
 	return i, err
 }
 
 const getWorkspaceById = `-- name: GetWorkspaceById :one
-SELECT id, workspace_name, description, user_id, created_at, updated_at
+SELECT id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
 FROM workspaces
 WHERE id = $1
 `
@@ -599,6 +602,7 @@ func (q *Queries) GetWorkspaceById(ctx context.Context, id pgtype.UUID) (Workspa
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StripeCustomerID,
 	)
 	return i, err
 }
@@ -850,7 +854,7 @@ SET workspace_name = $3,
     description    = $4,
     updated_at     = now()
 WHERE id = $1
-  AND user_id = $2 RETURNING id, workspace_name, description, user_id, created_at, updated_at
+  AND user_id = $2 RETURNING id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
 `
 
 type UpdateWorkspaceParams struct {
@@ -875,6 +879,33 @@ func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StripeCustomerID,
+	)
+	return i, err
+}
+
+const updateWorkspaceStripeCustomer = `-- name: UpdateWorkspaceStripeCustomer :one
+UPDATE workspaces
+SET stripe_customer_id = $2
+WHERE id = $1 RETURNING id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
+`
+
+type UpdateWorkspaceStripeCustomerParams struct {
+	ID               pgtype.UUID `json:"id"`
+	StripeCustomerID pgtype.Text `json:"stripe_customer_id"`
+}
+
+func (q *Queries) UpdateWorkspaceStripeCustomer(ctx context.Context, arg UpdateWorkspaceStripeCustomerParams) (Workspace, error) {
+	row := q.db.QueryRow(ctx, updateWorkspaceStripeCustomer, arg.ID, arg.StripeCustomerID)
+	var i Workspace
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceName,
+		&i.Description,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.StripeCustomerID,
 	)
 	return i, err
 }

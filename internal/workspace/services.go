@@ -4,6 +4,7 @@ import (
 	"context"
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	codeerror "gin-api-1/internal/codeerror"
+	"gin-api-1/internal/payment"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -19,14 +20,16 @@ type Service interface {
 }
 
 type svc struct {
-	repo *repo.Queries
-	db   *pgx.Conn
+	repo   *repo.Queries
+	db     *pgx.Conn
+	stripe payment.Service
 }
 
-func NewWorkspaceService(repo *repo.Queries, db *pgx.Conn) Service {
+func NewWorkspaceService(repo *repo.Queries, db *pgx.Conn, stripe payment.Service) Service {
 	return &svc{
-		repo: repo,
-		db:   db,
+		repo:   repo,
+		db:     db,
+		stripe: stripe,
 	}
 }
 
@@ -91,7 +94,14 @@ func (s *svc) CreateWorkspace(ctx context.Context, payload createWorkspacePayloa
 		return repo.Workspace{}, codeerror.New(codeerror.UserNotFound, "User not found")
 	}
 
-	workspace, err := s.repo.CreateWorkspace(ctx, repo.CreateWorkspaceParams{
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return repo.Workspace{}, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.repo.WithTx(tx)
+
+	workspace, err := qtx.CreateWorkspace(ctx, repo.CreateWorkspaceParams{
 		ID:            pgtype.UUID{Bytes: pk, Valid: true},
 		WorkspaceName: payload.WorkspaceName,
 		Description:   payload.Description,
@@ -99,6 +109,21 @@ func (s *svc) CreateWorkspace(ctx context.Context, payload createWorkspacePayloa
 	})
 	if err != nil {
 		return repo.Workspace{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to create workspace", err)
+	}
+
+	customer, err := s.stripe.CreateStripeCustomer(workspace.WorkspaceName)
+	if err != nil {
+		return repo.Workspace{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to create Stripe customer", err)
+	}
+
+	workspace, err = qtx.UpdateWorkspaceStripeCustomer(ctx, repo.UpdateWorkspaceStripeCustomerParams{
+		ID:               workspace.ID,
+		StripeCustomerID: pgtype.Text{String: customer.ID, Valid: true},
+	})
+
+	commitErr := tx.Commit(ctx)
+	if commitErr != nil {
+		return repo.Workspace{}, commitErr
 	}
 
 	return workspace, nil

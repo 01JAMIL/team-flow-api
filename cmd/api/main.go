@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 	"github.com/resend/resend-go/v3"
+	"github.com/stripe/stripe-go/v86"
 )
 
 type databaseConfig struct {
@@ -23,6 +24,7 @@ type application struct {
 	config config
 	db     *pgx.Conn
 	resend *resend.Client
+	stripe *stripe.Client
 }
 
 func main() {
@@ -50,11 +52,13 @@ func main() {
 	log.Println("Database connected successfully")
 
 	client := resend.NewClient(env.GetEnvString("RESEND_API_KEY", "re_xx"))
+	sc := stripe.NewClient(env.GetEnvString("STRIPE_SECRET_KEY", "stripe_xx"))
 
 	app := &application{
 		config: cfg,
 		db:     conn,
 		resend: client,
+		stripe: sc,
 	}
 
 	err := app.serve(app.routes())

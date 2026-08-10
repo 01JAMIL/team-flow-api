@@ -5,6 +5,7 @@ import (
 	"gin-api-1/internal/auth"
 	"gin-api-1/internal/email"
 	"gin-api-1/internal/messages"
+	"gin-api-1/internal/payment"
 	"gin-api-1/internal/projects"
 	"gin-api-1/internal/tasks"
 	"gin-api-1/internal/websocket"
@@ -19,11 +20,12 @@ func (app *application) routes() http.Handler {
 	r := gin.Default()
 
 	emailService := email.NewEmailService(app.resend)
+	paymentService := payment.NewStripeService(app.stripe)
 
 	authService := auth.NewAuthService(repo.New(app.db), app.db)
 	authHandler := auth.NewAuthHandler(authService, *emailService)
 
-	workspaceService := workspace.NewWorkspaceService(repo.New(app.db), app.db)
+	workspaceService := workspace.NewWorkspaceService(repo.New(app.db), app.db, *paymentService)
 	workspaceHandler := workspace.NewWorkspaceHandler(workspaceService)
 
 	workspaceMembersService := workspacemembers.NewWorkspaceMembersService(repo.New(app.db), app.db)
