@@ -4,11 +4,13 @@ import (
 	"context"
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	codeerror "gin-api-1/internal/codeerror"
+	"gin-api-1/internal/env"
 	"gin-api-1/internal/payment"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/stripe/stripe-go/v86"
 )
 
 type Service interface {
@@ -17,6 +19,7 @@ type Service interface {
 	GetUserWorkspaces(ctx context.Context, userID pgtype.UUID, page, pageSize int) (getUserWorkspacesResponse, error)
 	UpdateWorkspace(ctx context.Context, payload updateWorkspacePayload) (repo.Workspace, error)
 	DeleteWorkspace(ctx context.Context, arg repo.DeleteWorkspaceParams) error
+	CreateCheckoutSession(ctx context.Context, workspaceID uuid.UUID, userID string) (*stripe.CheckoutSession, error)
 }
 
 type svc struct {
@@ -94,36 +97,15 @@ func (s *svc) CreateWorkspace(ctx context.Context, payload createWorkspacePayloa
 		return repo.Workspace{}, codeerror.New(codeerror.UserNotFound, "User not found")
 	}
 
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return repo.Workspace{}, err
-	}
-	defer tx.Rollback(ctx)
-	qtx := s.repo.WithTx(tx)
-
-	workspace, err := qtx.CreateWorkspace(ctx, repo.CreateWorkspaceParams{
+	workspace, err := s.repo.CreateWorkspace(ctx, repo.CreateWorkspaceParams{
 		ID:            pgtype.UUID{Bytes: pk, Valid: true},
 		WorkspaceName: payload.WorkspaceName,
 		Description:   payload.Description,
 		UserID:        pgtype.UUID{Bytes: userID, Valid: true},
 	})
+
 	if err != nil {
 		return repo.Workspace{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to create workspace", err)
-	}
-
-	customer, err := s.stripe.CreateStripeCustomer(workspace.WorkspaceName)
-	if err != nil {
-		return repo.Workspace{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to create Stripe customer", err)
-	}
-
-	workspace, err = qtx.UpdateWorkspaceStripeCustomer(ctx, repo.UpdateWorkspaceStripeCustomerParams{
-		ID:               workspace.ID,
-		StripeCustomerID: pgtype.Text{String: customer.ID, Valid: true},
-	})
-
-	commitErr := tx.Commit(ctx)
-	if commitErr != nil {
-		return repo.Workspace{}, commitErr
 	}
 
 	return workspace, nil
@@ -178,4 +160,67 @@ func (s *svc) DeleteWorkspace(ctx context.Context, arg repo.DeleteWorkspaceParam
 	}
 
 	return nil
+}
+
+func (s *svc) CreateCheckoutSession(ctx context.Context, workspaceID uuid.UUID, userID string) (*stripe.CheckoutSession, error) {
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, codeerror.New(codeerror.InvalidUUID, "User ID invalid")
+	}
+
+	workspace, err := s.repo.GetUserWorkspaceByID(ctx, repo.GetUserWorkspaceByIDParams{
+		ID:     pgtype.UUID{Bytes: workspaceID, Valid: true},
+		UserID: pgtype.UUID{Bytes: userUUID, Valid: true},
+	})
+	if err != nil {
+		return nil, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+	}
+
+	if !workspace.StripeCustomerID.Valid {
+		customer, err := s.stripe.CreateStripeCustomer(
+			workspace.WorkspaceName,
+		)
+
+		if err != nil {
+			return nil, codeerror.Wrap(
+				codeerror.StatusInternalServerError,
+				"Failed to create Stripe customer",
+				err,
+			)
+		}
+
+		workspace, err = s.repo.UpdateWorkspaceStripeCustomer(
+			ctx,
+			repo.UpdateWorkspaceStripeCustomerParams{
+				ID: workspace.ID,
+				StripeCustomerID: pgtype.Text{
+					String: customer.ID,
+					Valid:  true,
+				},
+			},
+		)
+
+		if err != nil {
+			return nil, codeerror.Wrap(
+				codeerror.StatusInternalServerError,
+				"Failed to save Stripe customer",
+				err,
+			)
+		}
+	}
+
+	session, err := s.stripe.CreateCheckoutSession(
+		workspace.StripeCustomerID.String,
+		env.GetEnvString("STRIPE_PRO_PRICE_ID", "price_xx"),
+	)
+
+	if err != nil {
+		return nil, codeerror.Wrap(
+			codeerror.StatusInternalServerError,
+			"Failed to create checkout session",
+			err,
+		)
+	}
+
+	return session, nil
 }
