@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"fmt"
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	codeerror "gin-api-1/internal/codeerror"
 	"gin-api-1/internal/env"
@@ -25,10 +26,10 @@ type Service interface {
 type svc struct {
 	repo   *repo.Queries
 	db     *pgx.Conn
-	stripe payment.Service
+	stripe payment.Svc
 }
 
-func NewWorkspaceService(repo *repo.Queries, db *pgx.Conn, stripe payment.Service) Service {
+func NewWorkspaceService(repo *repo.Queries, db *pgx.Conn, stripe payment.Svc) Service {
 	return &svc{
 		repo:   repo,
 		db:     db,
@@ -176,7 +177,7 @@ func (s *svc) CreateCheckoutSession(ctx context.Context, workspaceID uuid.UUID, 
 		return nil, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
 
-	if !workspace.StripeCustomerID.Valid {
+	if !workspace.StripeCustomerID.Valid || workspace.StripeCustomerID.String == "" {
 		customer, err := s.stripe.CreateStripeCustomer(
 			workspace.WorkspaceName,
 		)
@@ -210,11 +211,13 @@ func (s *svc) CreateCheckoutSession(ctx context.Context, workspaceID uuid.UUID, 
 	}
 
 	session, err := s.stripe.CreateCheckoutSession(
+		workspaceID.String(),
 		workspace.StripeCustomerID.String,
 		env.GetEnvString("STRIPE_PRO_PRICE_ID", "price_xx"),
 	)
 
 	if err != nil {
+		fmt.Println("Failed to create checkout session", err)
 		return nil, codeerror.Wrap(
 			codeerror.StatusInternalServerError,
 			"Failed to create checkout session",

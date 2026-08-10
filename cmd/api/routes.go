@@ -20,7 +20,8 @@ func (app *application) routes() http.Handler {
 	r := gin.Default()
 
 	emailService := email.NewEmailService(app.resend)
-	paymentService := payment.NewStripeService(app.stripe)
+	paymentService := payment.NewStripeService(app.stripe, repo.New(app.db))
+	paymentHandler := payment.NewPaymentHandler(*paymentService)
 
 	authService := auth.NewAuthService(repo.New(app.db), app.db)
 	authHandler := auth.NewAuthHandler(authService, *emailService)
@@ -51,6 +52,9 @@ func (app *application) routes() http.Handler {
 
 		v1.POST("/auth/register", authHandler.Register)
 		v1.POST("/auth/login", authHandler.Login)
+
+		// Webhooks
+		v1.POST("/webhooks/stripe", paymentHandler.HandleWebhook)
 	}
 
 	authGroup := v1.Group("/")
