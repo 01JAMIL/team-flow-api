@@ -17,6 +17,7 @@ type Querier interface {
 	CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error)
 	CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
+	DeactivateSubscription(ctx context.Context, stripeSubscriptionID string) (Subscription, error)
 	DeleteMemberFromWorkspace(ctx context.Context, arg DeleteMemberFromWorkspaceParams) error
 	DeleteProject(ctx context.Context, id pgtype.UUID) error
 	DeleteTask(ctx context.Context, id pgtype.UUID) error

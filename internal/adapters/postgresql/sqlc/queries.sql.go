@@ -230,6 +230,31 @@ func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams
 	return i, err
 }
 
+const deactivateSubscription = `-- name: DeactivateSubscription :one
+UPDATE subscriptions
+SET status     = 'INACTIVE',
+    updated_at = NOW()
+WHERE stripe_subscription_id = $1 RETURNING id, workspace_id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at
+`
+
+func (q *Queries) DeactivateSubscription(ctx context.Context, stripeSubscriptionID string) (Subscription, error) {
+	row := q.db.QueryRow(ctx, deactivateSubscription, stripeSubscriptionID)
+	var i Subscription
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.StripeSubscriptionID,
+		&i.StripePriceID,
+		&i.Status,
+		&i.Plan,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const deleteMemberFromWorkspace = `-- name: DeleteMemberFromWorkspace :exec
 DELETE
 FROM workspace_members

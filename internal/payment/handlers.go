@@ -147,6 +147,27 @@ func (h *handler) HandleWebhook(c *gin.Context) {
 			return
 		}
 
+	case "customer.subscription.deleted":
+		var subscription stripe.Subscription
+
+		if err := json.Unmarshal(
+			event.Data.Raw,
+			&subscription,
+		); err != nil {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+
+		_, err := h.subscriptionsService.DeactivateSubscription(
+			c,
+			subscription.ID,
+		)
+
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
 	default:
 		fmt.Println("Unhandled event:", event.Type)
 		c.Status(http.StatusBadRequest)

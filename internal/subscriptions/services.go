@@ -15,6 +15,7 @@ type Service interface {
 	CreateSubscription(ctx context.Context, payload CreateSubscriptionPayload) (repo.Subscription, error)
 	UpdateSubscription(ctx context.Context, payload UpdateSubscriptionPayload) (repo.Subscription, error)
 	GetSubscription(subscriptionID string) (*stripe.Subscription, error)
+	DeactivateSubscription(ctx context.Context, stripeSubscriptionID string) (repo.Subscription, error)
 }
 
 type svc struct {
@@ -65,6 +66,21 @@ func (s *svc) UpdateSubscription(ctx context.Context, payload UpdateSubscription
 		CurrentPeriodStart:   pgtype.Timestamptz{Time: payload.CurrentPeriodStart.Time, Valid: true},
 		CurrentPeriodEnd:     pgtype.Timestamptz{Time: payload.CurrentPeriodEnd.Time, Valid: true},
 	})
+}
+
+func (s *svc) DeactivateSubscription(ctx context.Context, stripeSubscriptionID string) (repo.Subscription, error) {
+	_, err := s.repo.GetSubscriptionByStripeSubscription(ctx, stripeSubscriptionID)
+	if err != nil {
+		return repo.Subscription{}, codeerror.New(codeerror.SubscriptionNotFound, "Subscription not found")
+	}
+
+	subscription, err := s.repo.DeactivateSubscription(ctx, stripeSubscriptionID)
+
+	if err != nil {
+		return repo.Subscription{}, codeerror.New(codeerror.FailedToDeactivateSubscription, "Failed to deactivate subscription")
+	}
+
+	return subscription, nil
 }
 
 func (s *svc) GetSubscription(

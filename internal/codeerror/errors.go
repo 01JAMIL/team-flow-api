@@ -21,14 +21,14 @@ import (
 // Frontends can switch on these values to handle errors per resource.
 const (
 	// Generic HTTP-aligned codes.
-	StatusBadRequest          = "BAD_REQUEST"
-	StatusUnauthorized        = "UNAUTHORIZED"
-	StatusForbidden           = "FORBIDDEN"
-	StatusNotFound            = "NOT_FOUND"
-	StatusConflict            = "CONFLICT"
-	StatusInternalServerError = "INTERNAL_SERVER_ERROR"
-	SubscriptionNotFound      = "SUBSCRIPTION_NOT_FOUND"
-
+	StatusBadRequest               = "BAD_REQUEST"
+	StatusUnauthorized             = "UNAUTHORIZED"
+	StatusForbidden                = "FORBIDDEN"
+	StatusNotFound                 = "NOT_FOUND"
+	StatusConflict                 = "CONFLICT"
+	StatusInternalServerError      = "INTERNAL_SERVER_ERROR"
+	SubscriptionNotFound           = "SUBSCRIPTION_NOT_FOUND"
+	FailedToDeactivateSubscription = "FAILED_TO_DEACTIVATE_SUBSCRIPTION"
 	// Auth codes.
 	ValidationError    = "VALIDATION_ERROR"
 	UserAlreadyExist   = "USER_ALREADY_EXIST"
@@ -163,7 +163,7 @@ func HTTPStatus(err error) int {
 		return http.StatusNotFound
 	case StatusConflict, UserAlreadyExist, MemberAlreadyExists:
 		return http.StatusConflict
-	case StatusBadRequest, ValidationError, InvalidDate, InvalidUUID, SelfMessageNotAllowed:
+	case StatusBadRequest, ValidationError, InvalidDate, InvalidUUID, SelfMessageNotAllowed, FailedToDeactivateSubscription:
 		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError

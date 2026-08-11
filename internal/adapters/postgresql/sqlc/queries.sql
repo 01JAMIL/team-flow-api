@@ -211,3 +211,9 @@ WHERE stripe_subscription_id = $1 RETURNING *;
 SELECT *
 FROM subscriptions
 WHERE stripe_subscription_id = $1;
+
+-- name: DeactivateSubscription :one
+UPDATE subscriptions
+SET status     = 'INACTIVE',
+    updated_at = NOW()
+WHERE stripe_subscription_id = $1 RETURNING *;
