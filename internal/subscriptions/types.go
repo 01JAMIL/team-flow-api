@@ -11,3 +11,11 @@ type CreateSubscriptionPayload struct {
 	CurrentPeriodStart   pgtype.Timestamptz `json:"currentPeriodStart"`
 	CurrentPeriodEnd     pgtype.Timestamptz `json:"currentPeriodEnd"`
 }
+
+type UpdateSubscriptionPayload struct {
+	StripePriceID        string             `json:"stripePriceId" binding:"required"`
+	Status               string             `json:"status" binding:"required,oneof=ACTIVE INACTIVE"`
+	CurrentPeriodStart   pgtype.Timestamptz `json:"currentPeriodStart"`
+	CurrentPeriodEnd     pgtype.Timestamptz `json:"currentPeriodEnd"`
+	StripeSubscriptionID string             `json:"stripeSubscriptionId" binding:"required"`
+}

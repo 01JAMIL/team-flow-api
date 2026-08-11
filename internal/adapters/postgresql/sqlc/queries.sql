@@ -197,3 +197,17 @@ INSERT INTO subscriptions (id,
                            current_period_start,
                            current_period_end)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
+
+-- name: UpdateSubscription :one
+UPDATE subscriptions
+SET stripe_price_id      = $2,
+    status               = $3,
+    current_period_start = $4,
+    current_period_end   = $5,
+    updated_at           = NOW()
+WHERE stripe_subscription_id = $1 RETURNING *;
+
+-- name: GetSubscriptionByStripeSubscription :one
+SELECT *
+FROM subscriptions
+WHERE stripe_subscription_id = $1;

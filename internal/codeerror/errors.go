@@ -27,6 +27,7 @@ const (
 	StatusNotFound            = "NOT_FOUND"
 	StatusConflict            = "CONFLICT"
 	StatusInternalServerError = "INTERNAL_SERVER_ERROR"
+	SubscriptionNotFound      = "SUBSCRIPTION_NOT_FOUND"
 
 	// Auth codes.
 	ValidationError    = "VALIDATION_ERROR"
@@ -158,7 +159,7 @@ func HTTPStatus(err error) int {
 		return http.StatusUnauthorized
 	case StatusForbidden:
 		return http.StatusForbidden
-	case StatusNotFound, WorkspaceNotFound, ProjectNotFound, TaskNotFound, UserNotFound, MemberNotFound:
+	case StatusNotFound, WorkspaceNotFound, ProjectNotFound, TaskNotFound, UserNotFound, MemberNotFound, SubscriptionNotFound:
 		return http.StatusNotFound
 	case StatusConflict, UserAlreadyExist, MemberAlreadyExists:
 		return http.StatusConflict

@@ -2,6 +2,7 @@ package payment
 
 import (
 	"encoding/json"
+	"fmt"
 	"gin-api-1/internal/env"
 	"gin-api-1/internal/subscriptions"
 	"io"
@@ -49,7 +50,8 @@ func (h *handler) HandleWebhook(c *gin.Context) {
 		return
 	}
 
-	if event.Type == "checkout.session.completed" {
+	switch event.Type {
+	case "checkout.session.completed":
 		var checkoutSession stripe.CheckoutSession
 
 		if err := json.Unmarshal(
@@ -98,7 +100,75 @@ func (h *handler) HandleWebhook(c *gin.Context) {
 				Valid: true,
 			},
 		})
+
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+	case "customer.subscription.updated":
+		var subscription stripe.Subscription
+
+		if err := json.Unmarshal(
+			event.Data.Raw,
+			&subscription,
+		); err != nil {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+
+		if len(subscription.Items.Data) == 0 {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+
+		priceID := subscription.Items.Data[0].Price.ID
+		status := mapStripeSubscriptionStatus(subscription.Status)
+
+		periodStart := time.Now().UTC()
+		periodEnd := periodStart.AddDate(0, 1, 0)
+
+		_, err := h.subscriptionsService.UpdateSubscription(c, subscriptions.UpdateSubscriptionPayload{
+			StripePriceID: priceID,
+			Status:        status,
+			CurrentPeriodStart: pgtype.Timestamptz{
+				Time:  periodStart,
+				Valid: true,
+			},
+			CurrentPeriodEnd: pgtype.Timestamptz{
+				Time:  periodEnd,
+				Valid: true,
+			},
+			StripeSubscriptionID: subscription.ID,
+		})
+
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+	default:
+		fmt.Println("Unhandled event:", event.Type)
+		c.Status(http.StatusBadRequest)
 	}
 
 	c.Status(http.StatusOK)
+}
+
+func mapStripeSubscriptionStatus(
+	status stripe.SubscriptionStatus,
+) string {
+	switch status {
+	case stripe.SubscriptionStatusActive,
+		stripe.SubscriptionStatusTrialing:
+		return "ACTIVE"
+
+	case stripe.SubscriptionStatusCanceled,
+		stripe.SubscriptionStatusUnpaid,
+		stripe.SubscriptionStatusIncompleteExpired:
+		return "INACTIVE"
+
+	default:
+		return "INACTIVE"
+	}
 }

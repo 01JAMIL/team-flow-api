@@ -464,6 +464,30 @@ func (q *Queries) GetProjectTasks(ctx context.Context, arg GetProjectTasksParams
 	return items, nil
 }
 
+const getSubscriptionByStripeSubscription = `-- name: GetSubscriptionByStripeSubscription :one
+SELECT id, workspace_id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at
+FROM subscriptions
+WHERE stripe_subscription_id = $1
+`
+
+func (q *Queries) GetSubscriptionByStripeSubscription(ctx context.Context, stripeSubscriptionID string) (Subscription, error) {
+	row := q.db.QueryRow(ctx, getSubscriptionByStripeSubscription, stripeSubscriptionID)
+	var i Subscription
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.StripeSubscriptionID,
+		&i.StripePriceID,
+		&i.Status,
+		&i.Plan,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getTaskById = `-- name: GetTaskById :one
 SELECT id, name, description, start_date, end_date, status, priority, project_id, assignee_id, created_at, updated_at
 FROM tasks
@@ -840,6 +864,48 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (P
 		&i.Name,
 		&i.Description,
 		&i.WorkspaceID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateSubscription = `-- name: UpdateSubscription :one
+UPDATE subscriptions
+SET stripe_price_id      = $2,
+    status               = $3,
+    current_period_start = $4,
+    current_period_end   = $5,
+    updated_at           = NOW()
+WHERE stripe_subscription_id = $1 RETURNING id, workspace_id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at
+`
+
+type UpdateSubscriptionParams struct {
+	StripeSubscriptionID string             `json:"stripe_subscription_id"`
+	StripePriceID        string             `json:"stripe_price_id"`
+	Status               string             `json:"status"`
+	CurrentPeriodStart   pgtype.Timestamptz `json:"current_period_start"`
+	CurrentPeriodEnd     pgtype.Timestamptz `json:"current_period_end"`
+}
+
+func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscriptionParams) (Subscription, error) {
+	row := q.db.QueryRow(ctx, updateSubscription,
+		arg.StripeSubscriptionID,
+		arg.StripePriceID,
+		arg.Status,
+		arg.CurrentPeriodStart,
+		arg.CurrentPeriodEnd,
+	)
+	var i Subscription
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.StripeSubscriptionID,
+		&i.StripePriceID,
+		&i.Status,
+		&i.Plan,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
