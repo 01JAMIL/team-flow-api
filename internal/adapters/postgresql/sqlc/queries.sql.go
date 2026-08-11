@@ -102,6 +102,56 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 	return i, err
 }
 
+const createSubscription = `-- name: CreateSubscription :one
+INSERT INTO subscriptions (id,
+                           workspace_id,
+                           stripe_subscription_id,
+                           stripe_price_id,
+                           status,
+                           plan,
+                           current_period_start,
+                           current_period_end)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, workspace_id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at
+`
+
+type CreateSubscriptionParams struct {
+	ID                   pgtype.UUID        `json:"id"`
+	WorkspaceID          pgtype.UUID        `json:"workspace_id"`
+	StripeSubscriptionID string             `json:"stripe_subscription_id"`
+	StripePriceID        string             `json:"stripe_price_id"`
+	Status               string             `json:"status"`
+	Plan                 string             `json:"plan"`
+	CurrentPeriodStart   pgtype.Timestamptz `json:"current_period_start"`
+	CurrentPeriodEnd     pgtype.Timestamptz `json:"current_period_end"`
+}
+
+func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error) {
+	row := q.db.QueryRow(ctx, createSubscription,
+		arg.ID,
+		arg.WorkspaceID,
+		arg.StripeSubscriptionID,
+		arg.StripePriceID,
+		arg.Status,
+		arg.Plan,
+		arg.CurrentPeriodStart,
+		arg.CurrentPeriodEnd,
+	)
+	var i Subscription
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.StripeSubscriptionID,
+		&i.StripePriceID,
+		&i.Status,
+		&i.Plan,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createTask = `-- name: CreateTask :one
 INSERT INTO tasks (id, name, description, start_date, end_date, status, priority, project_id, assignee_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, name, description, start_date, end_date, status, priority, project_id, assignee_id, created_at, updated_at

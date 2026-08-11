@@ -25,6 +25,19 @@ type Project struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Subscription struct {
+	ID                   pgtype.UUID        `json:"id"`
+	WorkspaceID          pgtype.UUID        `json:"workspace_id"`
+	StripeSubscriptionID string             `json:"stripe_subscription_id"`
+	StripePriceID        string             `json:"stripe_price_id"`
+	Status               string             `json:"status"`
+	Plan                 string             `json:"plan"`
+	CurrentPeriodStart   pgtype.Timestamptz `json:"current_period_start"`
+	CurrentPeriodEnd     pgtype.Timestamptz `json:"current_period_end"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Task struct {
 	ID          pgtype.UUID        `json:"id"`
 	Name        string             `json:"name"`

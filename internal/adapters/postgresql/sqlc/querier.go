@@ -14,6 +14,7 @@ type Querier interface {
 	AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) (WorkspaceMember, error)
 	CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error)
 	CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error)
+	CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error)
 	CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
 	DeleteMemberFromWorkspace(ctx context.Context, arg DeleteMemberFromWorkspaceParams) error

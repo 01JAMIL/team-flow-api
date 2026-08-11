@@ -186,3 +186,14 @@ OFFSET $4;
 UPDATE workspaces
 SET stripe_customer_id = $2
 WHERE id = $1 RETURNING *;
+
+-- name: CreateSubscription :one
+INSERT INTO subscriptions (id,
+                           workspace_id,
+                           stripe_subscription_id,
+                           stripe_price_id,
+                           status,
+                           plan,
+                           current_period_start,
+                           current_period_end)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
