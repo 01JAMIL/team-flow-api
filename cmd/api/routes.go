@@ -23,7 +23,7 @@ func (app *application) routes() http.Handler {
 	emailService := email.NewEmailService(app.resend)
 	paymentService := payment.NewStripeService(app.stripe, repo.New(app.db))
 	subscriptionsService := subscriptions.NewSubscriptionsService(repo.New(app.db), app.db, app.stripe)
-	paymentHandler := payment.NewPaymentHandler(*paymentService, subscriptionsService)
+	paymentHandler := payment.NewPaymentHandler(*paymentService, subscriptionsService, *emailService)
 
 	authService := auth.NewAuthService(repo.New(app.db), app.db)
 	authHandler := auth.NewAuthHandler(authService, *emailService)

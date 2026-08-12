@@ -21,3 +21,21 @@ func (s *Service) SendRegisterWelcomeEmail(to string) error {
 	})
 	return err
 }
+
+func (s *Service) PaymentFailedEmail(to string) error {
+	_, err := s.client.Emails.Send(&resend.SendEmailRequest{
+		From:    "onboarding@giliwawa.tn",
+		To:      []string{to},
+		Subject: "Payment Failed",
+		Html: `<p>Hello,</p>
+		
+		<p>We couldn't process your payment for your Team Flow Pro subscription.</p>
+		
+		<p>Please update your payment method and try again to keep your subscription active.</p>
+		
+		<p>Thank you,<br>
+		Team Flow</p>`,
+	})
+
+	return err
+}

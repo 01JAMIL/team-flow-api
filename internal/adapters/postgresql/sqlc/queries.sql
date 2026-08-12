@@ -217,3 +217,9 @@ UPDATE subscriptions
 SET status     = 'INACTIVE',
     updated_at = NOW()
 WHERE stripe_subscription_id = $1 RETURNING *;
+
+-- name: GetUserByStripeCustomerID :one
+SELECT u.*
+FROM users u
+         JOIN workspaces w ON w.user_id = u.id
+WHERE w.stripe_customer_id = $1 LIMIT 1;

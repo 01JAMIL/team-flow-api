@@ -30,6 +30,7 @@ type Querier interface {
 	GetTaskById(ctx context.Context, id pgtype.UUID) (Task, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserById(ctx context.Context, id pgtype.UUID) (User, error)
+	GetUserByStripeCustomerID(ctx context.Context, stripeCustomerID pgtype.Text) (User, error)
 	GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspaceByIDParams) (Workspace, error)
 	GetUserWorkspaces(ctx context.Context, arg GetUserWorkspacesParams) ([]GetUserWorkspacesRow, error)
 	GetWorkspaceByID(ctx context.Context, dollar_1 string) (Workspace, error)

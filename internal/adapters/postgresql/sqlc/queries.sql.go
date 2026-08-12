@@ -580,6 +580,28 @@ func (q *Queries) GetUserById(ctx context.Context, id pgtype.UUID) (User, error)
 	return i, err
 }
 
+const getUserByStripeCustomerID = `-- name: GetUserByStripeCustomerID :one
+SELECT u.id, u.first_name, u.last_name, u.email, u.password, u.created_at, u.updated_at
+FROM users u
+         JOIN workspaces w ON w.user_id = u.id
+WHERE w.stripe_customer_id = $1 LIMIT 1
+`
+
+func (q *Queries) GetUserByStripeCustomerID(ctx context.Context, stripeCustomerID pgtype.Text) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByStripeCustomerID, stripeCustomerID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.Email,
+		&i.Password,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserWorkspaceByID = `-- name: GetUserWorkspaceByID :one
 SELECT id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
 FROM workspaces

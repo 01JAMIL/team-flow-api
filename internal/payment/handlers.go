@@ -3,9 +3,11 @@ package payment
 import (
 	"encoding/json"
 	"fmt"
+	"gin-api-1/internal/email"
 	"gin-api-1/internal/env"
 	"gin-api-1/internal/subscriptions"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -19,12 +21,14 @@ import (
 type handler struct {
 	service              Svc
 	subscriptionsService subscriptions.Service
+	emailService         email.Service
 }
 
-func NewPaymentHandler(service Svc, subscriptionsService subscriptions.Service) *handler {
+func NewPaymentHandler(service Svc, subscriptionsService subscriptions.Service, emailService email.Service) *handler {
 	return &handler{
 		service:              service,
 		subscriptionsService: subscriptionsService,
+		emailService:         emailService,
 	}
 }
 
@@ -167,6 +171,34 @@ func (h *handler) HandleWebhook(c *gin.Context) {
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+
+	case "invoice.payment_failed":
+		var invoice stripe.Invoice
+
+		if err := json.Unmarshal(
+			event.Data.Raw,
+			&invoice,
+		); err != nil {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+
+		fmt.Println("invoice.Customer.ID : ", invoice.Customer.ID)
+
+		user, err := h.service.repo.GetUserByStripeCustomerID(c, pgtype.Text{String: invoice.Customer.ID, Valid: true})
+		if err != nil {
+			log.Printf("failed to get user: %v", err)
+		}
+
+		fmt.Println("User email : ", user.Email)
+
+		if user.Email != "" {
+			if err := h.emailService.PaymentFailedEmail(user.Email); err != nil {
+				log.Printf("failed to send payment failed email: %v", err)
+			}
+		}
+
+		c.Status(http.StatusOK)
 
 	default:
 		fmt.Println("Unhandled event:", event.Type)
