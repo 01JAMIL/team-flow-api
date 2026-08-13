@@ -32,10 +32,10 @@ func (s *svc) AddWorkspaceMember(ctx context.Context, workspaceID string, payloa
 
 	workspaceUUID, err := uuid.Parse(workspaceID)
 	if err != nil {
-		return repo.WorkspaceMember{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+		return repo.WorkspaceMember{}, codeerror.New(codeerror.InvalidUUID, "Invalid workspace ID")
 	}
 
-	_, err = s.repo.GetWorkspaceById(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
+	_, err = s.repo.GetWorkspaceByID(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
 	if err != nil {
 		return repo.WorkspaceMember{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
@@ -71,10 +71,10 @@ func (s *svc) AddWorkspaceMember(ctx context.Context, workspaceID string, payloa
 func (s *svc) RemoveWorkspaceMember(ctx context.Context, workspaceID, userID string) error {
 	workspaceUUID, err := uuid.Parse(workspaceID)
 	if err != nil {
-		return codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+		return codeerror.New(codeerror.InvalidUUID, "Invalid workspace ID")
 	}
 
-	_, err = s.repo.GetWorkspaceById(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
+	_, err = s.repo.GetWorkspaceByID(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
 	if err != nil {
 		return codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
@@ -98,10 +98,10 @@ func (s *svc) RemoveWorkspaceMember(ctx context.Context, workspaceID, userID str
 func (s *svc) GetWorkspaceMembers(ctx context.Context, workspaceID string, page, pageSize int) (getWorkspaceMembersResponse, error) {
 	workspaceUUID, err := uuid.Parse(workspaceID)
 	if err != nil {
-		return getWorkspaceMembersResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+		return getWorkspaceMembersResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid workspace ID")
 	}
 
-	workspace, err := s.repo.GetWorkspaceById(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
+	workspace, err := s.repo.GetWorkspaceByID(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
 	if err != nil {
 		return getWorkspaceMembersResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}

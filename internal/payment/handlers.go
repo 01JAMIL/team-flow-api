@@ -183,14 +183,10 @@ func (h *handler) HandleWebhook(c *gin.Context) {
 			return
 		}
 
-		fmt.Println("invoice.Customer.ID : ", invoice.Customer.ID)
-
 		user, err := h.service.repo.GetUserByStripeCustomerID(c, pgtype.Text{String: invoice.Customer.ID, Valid: true})
 		if err != nil {
 			log.Printf("failed to get user: %v", err)
 		}
-
-		fmt.Println("User email : ", user.Email)
 
 		if user.Email != "" {
 			if err := h.emailService.PaymentFailedEmail(user.Email); err != nil {

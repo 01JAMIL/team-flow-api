@@ -41,6 +41,32 @@ func (q *Queries) AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMember
 	return i, err
 }
 
+const countUserWorkspaces = `-- name: CountUserWorkspaces :one
+SELECT COUNT(*)
+FROM workspaces
+WHERE user_id = $1
+`
+
+func (q *Queries) CountUserWorkspaces(ctx context.Context, userID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countUserWorkspaces, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countWorkspaceProjects = `-- name: CountWorkspaceProjects :one
+SELECT COUNT(*)
+FROM projects
+WHERE workspace_id = $1
+`
+
+func (q *Queries) CountWorkspaceProjects(ctx context.Context, workspaceID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countWorkspaceProjects, workspaceID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createMessage = `-- name: CreateMessage :one
 INSERT INTO messages (id, sender_id, receiver_id, content)
 VALUES ($1, $2, $3, $4) RETURNING id, sender_id, receiver_id, content, created_at
@@ -538,6 +564,33 @@ func (q *Queries) GetTaskById(ctx context.Context, id pgtype.UUID) (Task, error)
 	return i, err
 }
 
+const getUserActiveProSubscription = `-- name: GetUserActiveProSubscription :one
+SELECT s.id, s.workspace_id, s.stripe_subscription_id, s.stripe_price_id, s.status, s.plan, s.current_period_start, s.current_period_end, s.created_at, s.updated_at
+FROM subscriptions s
+         JOIN workspaces w ON w.id = s.workspace_id
+WHERE w.user_id = $1
+  AND s.status = 'ACTIVE'
+  AND s.plan = 'PRO' LIMIT 1
+`
+
+func (q *Queries) GetUserActiveProSubscription(ctx context.Context, userID pgtype.UUID) (Subscription, error) {
+	row := q.db.QueryRow(ctx, getUserActiveProSubscription, userID)
+	var i Subscription
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.StripeSubscriptionID,
+		&i.StripePriceID,
+		&i.Status,
+		&i.Plan,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, first_name, last_name, email, password, created_at, updated_at
 FROM users
@@ -686,35 +739,39 @@ func (q *Queries) GetUserWorkspaces(ctx context.Context, arg GetUserWorkspacesPa
 	return items, nil
 }
 
-const getWorkspaceByID = `-- name: GetWorkspaceByID :one
-SELECT id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
-FROM workspaces
-WHERE id = $1::varchar
+const getWorkspaceActiveSubscription = `-- name: GetWorkspaceActiveSubscription :one
+SELECT id, workspace_id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at
+FROM subscriptions
+WHERE workspace_id = $1
+  AND status = 'ACTIVE' LIMIT 1
 `
 
-func (q *Queries) GetWorkspaceByID(ctx context.Context, dollar_1 string) (Workspace, error) {
-	row := q.db.QueryRow(ctx, getWorkspaceByID, dollar_1)
-	var i Workspace
+func (q *Queries) GetWorkspaceActiveSubscription(ctx context.Context, workspaceID pgtype.UUID) (Subscription, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceActiveSubscription, workspaceID)
+	var i Subscription
 	err := row.Scan(
 		&i.ID,
-		&i.WorkspaceName,
-		&i.Description,
-		&i.UserID,
+		&i.WorkspaceID,
+		&i.StripeSubscriptionID,
+		&i.StripePriceID,
+		&i.Status,
+		&i.Plan,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.StripeCustomerID,
 	)
 	return i, err
 }
 
-const getWorkspaceById = `-- name: GetWorkspaceById :one
+const getWorkspaceByID = `-- name: GetWorkspaceByID :one
 SELECT id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
 FROM workspaces
 WHERE id = $1
 `
 
-func (q *Queries) GetWorkspaceById(ctx context.Context, id pgtype.UUID) (Workspace, error) {
-	row := q.db.QueryRow(ctx, getWorkspaceById, id)
+func (q *Queries) GetWorkspaceByID(ctx context.Context, id pgtype.UUID) (Workspace, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceByID, id)
 	var i Workspace
 	err := row.Scan(
 		&i.ID,

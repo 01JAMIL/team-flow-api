@@ -2,6 +2,7 @@ package projects
 
 import (
 	"context"
+	"errors"
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	codeerror "gin-api-1/internal/codeerror"
 
@@ -32,7 +33,12 @@ func NewProjectsService(repo *repo.Queries, db *pgx.Conn) Service {
 }
 
 func (s *svc) WorkspaceExists(ctx context.Context, workspaceID string) error {
-	_, err := s.repo.GetWorkspaceByID(ctx, workspaceID)
+	workspaceUUID, err := uuid.Parse(workspaceID)
+	if err != nil {
+		return codeerror.New(codeerror.InvalidUUID, "Invalid workspace ID")
+	}
+
+	_, err = s.repo.GetWorkspaceByID(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
 	if err != nil {
 		return codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
@@ -42,7 +48,7 @@ func (s *svc) WorkspaceExists(ctx context.Context, workspaceID string) error {
 func (s *svc) ensureAdminMember(ctx context.Context, workspaceID, loggedUserID, action string) error {
 	workspaceUUID, err := uuid.Parse(workspaceID)
 	if err != nil {
-		return codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+		return codeerror.New(codeerror.InvalidUUID, "Invalid workspace ID")
 	}
 
 	userUUID, err := uuid.Parse(loggedUserID)
@@ -68,10 +74,10 @@ func (s *svc) ensureAdminMember(ctx context.Context, workspaceID, loggedUserID, 
 func (s *svc) GetWorkspaceProjects(ctx context.Context, workspaceID string, page, pageSize int) (getWorkspaceProjectsResponse, error) {
 	workspaceUUID, err := uuid.Parse(workspaceID)
 	if err != nil {
-		return getWorkspaceProjectsResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+		return getWorkspaceProjectsResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid workspace ID")
 	}
 
-	_, err = s.repo.GetWorkspaceByID(ctx, workspaceID)
+	_, err = s.repo.GetWorkspaceByID(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
 	if err != nil {
 		return getWorkspaceProjectsResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
@@ -122,10 +128,10 @@ func (s *svc) GetWorkspaceProjects(ctx context.Context, workspaceID string, page
 func (s *svc) CreateProject(ctx context.Context, workspaceID string, loggedUserID string, payload createProjectPayload) (projectResponse, error) {
 	workspaceUUID, err := uuid.Parse(workspaceID)
 	if err != nil {
-		return projectResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+		return projectResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid workspace ID")
 	}
 
-	_, err = s.repo.GetWorkspaceByID(ctx, workspaceID)
+	_, err = s.repo.GetWorkspaceByID(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
 	if err != nil {
 		return projectResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}
@@ -136,6 +142,41 @@ func (s *svc) CreateProject(ctx context.Context, workspaceID string, loggedUserI
 
 	pk := uuid.New()
 
+	subscription, err := s.repo.GetWorkspaceActiveSubscription(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
+
+	if err == nil && subscription.Plan == "PRO" && subscription.Status == "ACTIVE" {
+		project, err := s.repo.CreateProject(ctx, repo.CreateProjectParams{
+			ID:          pgtype.UUID{Bytes: pk, Valid: true},
+			Name:        payload.Name,
+			Description: payload.Description,
+			WorkspaceID: pgtype.UUID{Bytes: workspaceUUID, Valid: true},
+		})
+		if err != nil {
+			return projectResponse{}, codeerror.New(codeerror.StatusInternalServerError, "Failed to create project")
+		}
+
+		return toProjectResponse(project), nil
+	}
+
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return projectResponse{}, codeerror.New(
+			codeerror.StatusInternalServerError,
+			"Failed to check workspace subscription",
+		)
+	}
+
+	workspaceProjectsCount, err := s.repo.CountWorkspaceProjects(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
+	if err != nil {
+		return projectResponse{}, codeerror.New(codeerror.StatusInternalServerError, "Unable to count workspace projects")
+	}
+
+	if workspaceProjectsCount >= 2 {
+		return projectResponse{}, codeerror.New(
+			codeerror.FreePlanProjectLimitReached,
+			"Free plan project limit reached",
+		)
+	}
+
 	project, err := s.repo.CreateProject(ctx, repo.CreateProjectParams{
 		ID:          pgtype.UUID{Bytes: pk, Valid: true},
 		Name:        payload.Name,
@@ -143,10 +184,14 @@ func (s *svc) CreateProject(ctx context.Context, workspaceID string, loggedUserI
 		WorkspaceID: pgtype.UUID{Bytes: workspaceUUID, Valid: true},
 	})
 	if err != nil {
-		return projectResponse{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to create project", err)
+		return projectResponse{}, codeerror.New(
+			codeerror.StatusInternalServerError,
+			"Failed to create project",
+		)
 	}
 
 	return toProjectResponse(project), nil
+
 }
 
 func (s *svc) GetProjectByID(ctx context.Context, projectID string) (projectResponse, error) {

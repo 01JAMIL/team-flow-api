@@ -91,37 +91,100 @@ func (s *svc) GetUserWorkspaces(ctx context.Context, userID pgtype.UUID, page, p
 }
 
 func (s *svc) CreateWorkspace(ctx context.Context, payload createWorkspacePayload) (repo.Workspace, error) {
-	pk := uuid.New()
-
 	userID, err := uuid.Parse(payload.UserID)
 	if err != nil {
-		return repo.Workspace{}, codeerror.New(codeerror.UserNotFound, "User not found")
+		return repo.Workspace{}, codeerror.New(codeerror.InvalidUUID, "Invalid user ID")
 	}
 
-	workspace, err := s.repo.CreateWorkspace(ctx, repo.CreateWorkspaceParams{
-		ID:            pgtype.UUID{Bytes: pk, Valid: true},
-		WorkspaceName: payload.WorkspaceName,
-		Description:   payload.Description,
-		UserID:        pgtype.UUID{Bytes: userID, Valid: true},
-	})
-
+	workspacesCount, err := s.repo.CountUserWorkspaces(ctx, pgtype.UUID{Bytes: userID, Valid: true})
 	if err != nil {
-		return repo.Workspace{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to create workspace", err)
+		return repo.Workspace{}, codeerror.New(codeerror.StatusInternalServerError, "Failed to get user workspaces")
 	}
 
-	return workspace, nil
+	pk := uuid.New()
+
+	var workspace repo.Workspace
+
+	if workspacesCount == 0 {
+		err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+			q := s.repo.WithTx(tx)
+
+			workspace, err = q.CreateWorkspace(ctx, repo.CreateWorkspaceParams{
+				ID:            pgtype.UUID{Bytes: pk, Valid: true},
+				WorkspaceName: payload.WorkspaceName,
+				Description:   payload.Description,
+				UserID:        pgtype.UUID{Bytes: userID, Valid: true},
+			})
+			if err != nil {
+				return err
+			}
+
+			_, err = q.AddWorkspaceMember(ctx, repo.AddWorkspaceMemberParams{
+				ID:          pgtype.UUID{Bytes: uuid.New(), Valid: true},
+				UserID:      pgtype.UUID{Bytes: userID, Valid: true},
+				WorkspaceID: pgtype.UUID{Bytes: pk, Valid: true},
+				UserRole:    "ADMIN",
+			})
+
+			return err
+		})
+
+		if err != nil {
+			return repo.Workspace{}, codeerror.New(codeerror.StatusInternalServerError, "Failed to create workspace")
+		}
+
+		return workspace, nil
+	}
+
+	subscription, err := s.repo.GetUserActiveProSubscription(ctx, pgtype.UUID{Bytes: userID, Valid: true})
+	if err != nil {
+		return repo.Workspace{}, codeerror.New(codeerror.ProPlanRequired, "Pro subscription required")
+	}
+
+	if subscription.Plan == "PRO" && subscription.Status == "ACTIVE" {
+		err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+			q := s.repo.WithTx(tx)
+
+			workspace, err = q.CreateWorkspace(ctx, repo.CreateWorkspaceParams{
+				ID:            pgtype.UUID{Bytes: pk, Valid: true},
+				WorkspaceName: payload.WorkspaceName,
+				Description:   payload.Description,
+				UserID:        pgtype.UUID{Bytes: userID, Valid: true},
+			})
+			if err != nil {
+				return err
+			}
+
+			_, err = q.AddWorkspaceMember(ctx, repo.AddWorkspaceMemberParams{
+				ID:          pgtype.UUID{Bytes: uuid.New(), Valid: true},
+				UserID:      pgtype.UUID{Bytes: userID, Valid: true},
+				WorkspaceID: pgtype.UUID{Bytes: pk, Valid: true},
+				UserRole:    "ADMIN",
+			})
+
+			return err
+		})
+
+		if err != nil {
+			return repo.Workspace{}, codeerror.New(codeerror.ProPlanRequired, "Pro subscription required")
+		}
+
+		return workspace, nil
+	}
+
+	return repo.Workspace{}, codeerror.New(codeerror.FreePlanWorkspaceLimitReached, "Free plan workspace limit reached")
 }
 
 func (s *svc) UpdateWorkspace(ctx context.Context, payload updateWorkspacePayload) (repo.Workspace, error) {
 	id, err := uuid.Parse(payload.ID)
 
 	if err != nil {
-		return repo.Workspace{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+		return repo.Workspace{}, codeerror.New(codeerror.InvalidUUID, "Invalid workspace ID")
 	}
 
 	userID, err := uuid.Parse(payload.UserID)
 	if err != nil {
-		return repo.Workspace{}, codeerror.New(codeerror.UserNotFound, "User not found")
+		return repo.Workspace{}, codeerror.New(codeerror.InvalidUUID, "Invalid user ID")
 	}
 
 	_, err = s.repo.GetUserWorkspaceByID(ctx, repo.GetUserWorkspaceByIDParams{

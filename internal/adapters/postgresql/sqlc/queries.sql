@@ -48,10 +48,6 @@ FROM workspaces
 WHERE id = $1
   AND user_id = $2;
 
--- name: GetWorkspaceById :one
-SELECT *
-FROM workspaces
-WHERE id = $1;
 
 -- name: AddWorkspaceMember :one
 INSERT INTO workspace_members (id, user_id, workspace_id, user_role)
@@ -93,7 +89,7 @@ WHERE id = $1;
 -- name: GetWorkspaceByID :one
 SELECT *
 FROM workspaces
-WHERE id = $1::varchar;
+WHERE id = $1;
 
 -- name: GetWorkspaceProjects :many
 SELECT count(*) OVER () AS total_count, id,
@@ -223,3 +219,27 @@ SELECT u.*
 FROM users u
          JOIN workspaces w ON w.user_id = u.id
 WHERE w.stripe_customer_id = $1 LIMIT 1;
+
+-- name: CountUserWorkspaces :one
+SELECT COUNT(*)
+FROM workspaces
+WHERE user_id = $1;
+
+-- name: CountWorkspaceProjects :one
+SELECT COUNT(*)
+FROM projects
+WHERE workspace_id = $1;
+
+-- name: GetUserActiveProSubscription :one
+SELECT s.*
+FROM subscriptions s
+         JOIN workspaces w ON w.id = s.workspace_id
+WHERE w.user_id = $1
+  AND s.status = 'ACTIVE'
+  AND s.plan = 'PRO' LIMIT 1;
+
+-- name: GetWorkspaceActiveSubscription :one
+SELECT *
+FROM subscriptions
+WHERE workspace_id = $1
+  AND status = 'ACTIVE' LIMIT 1;

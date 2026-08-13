@@ -29,6 +29,7 @@ const (
 	StatusInternalServerError      = "INTERNAL_SERVER_ERROR"
 	SubscriptionNotFound           = "SUBSCRIPTION_NOT_FOUND"
 	FailedToDeactivateSubscription = "FAILED_TO_DEACTIVATE_SUBSCRIPTION"
+
 	// Auth codes.
 	ValidationError    = "VALIDATION_ERROR"
 	UserAlreadyExist   = "USER_ALREADY_EXIST"
@@ -48,6 +49,11 @@ const (
 
 	// Messages Codes.
 	SelfMessageNotAllowed = "SELF_MESSAGE_NOT_ALLOWED"
+
+	// Payment Codes.
+	FreePlanWorkspaceLimitReached = "FREE_PLAN_WORKSPACE_LIMIT_REACHED"
+	FreePlanProjectLimitReached   = "FREE_PLAN_PROJECT_LIMIT_REACHED"
+	ProPlanRequired               = "PRO_PLAN_REQUIRED"
 )
 
 // Error is the application error carrying a machine-readable Code and a
@@ -157,7 +163,7 @@ func HTTPStatus(err error) int {
 	switch appErr.Code {
 	case StatusUnauthorized, InvalidCredentials, InvalidToken, MissingToken:
 		return http.StatusUnauthorized
-	case StatusForbidden:
+	case StatusForbidden, FreePlanWorkspaceLimitReached, FreePlanProjectLimitReached, ProPlanRequired:
 		return http.StatusForbidden
 	case StatusNotFound, WorkspaceNotFound, ProjectNotFound, TaskNotFound, UserNotFound, MemberNotFound, SubscriptionNotFound:
 		return http.StatusNotFound

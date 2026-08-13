@@ -36,7 +36,7 @@ func NewTasksService(repo *repo.Queries, db *pgx.Conn) Service {
 func (s *svc) CreateTask(ctx context.Context, projectID string, payload createTaskPayload) (taskResponse, error) {
 	id, err := uuid.Parse(projectID)
 	if err != nil {
-		return taskResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
+		return taskResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid project ID")
 	}
 
 	_, err = s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
@@ -48,7 +48,7 @@ func (s *svc) CreateTask(ctx context.Context, projectID string, payload createTa
 	if payload.AssigneeID != nil {
 		userUUID, err := uuid.Parse(*payload.AssigneeID)
 		if err != nil {
-			return taskResponse{}, codeerror.New(codeerror.UserNotFound, "User not found")
+			return taskResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid assignee ID")
 		}
 
 		_, err = s.repo.GetUserById(ctx, pgtype.UUID{Bytes: userUUID, Valid: true})
@@ -90,7 +90,7 @@ func (s *svc) CreateTask(ctx context.Context, projectID string, payload createTa
 func (s *svc) GetTaskByID(ctx context.Context, taskID string) (taskResponse, error) {
 	id, err := uuid.Parse(taskID)
 	if err != nil {
-		return taskResponse{}, codeerror.New(codeerror.TaskNotFound, "Task not found")
+		return taskResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid task ID")
 	}
 
 	task, err := s.repo.GetTaskById(ctx, pgtype.UUID{Bytes: id, Valid: true})
@@ -104,7 +104,7 @@ func (s *svc) GetTaskByID(ctx context.Context, taskID string) (taskResponse, err
 func (s *svc) UpdateTask(ctx context.Context, taskID string, payload updateTaskPayload) (taskResponse, error) {
 	id, err := uuid.Parse(taskID)
 	if err != nil {
-		return taskResponse{}, codeerror.New(codeerror.TaskNotFound, "Task not found")
+		return taskResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid task ID")
 	}
 
 	_, err = s.repo.GetTaskById(ctx, pgtype.UUID{Bytes: id, Valid: true})
@@ -116,7 +116,7 @@ func (s *svc) UpdateTask(ctx context.Context, taskID string, payload updateTaskP
 	if payload.AssigneeID != nil {
 		assigneeUUID, err := uuid.Parse(*payload.AssigneeID)
 		if err != nil {
-			return taskResponse{}, codeerror.New(codeerror.UserNotFound, "User not found")
+			return taskResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid assignee ID")
 		}
 
 		_, err = s.repo.GetUserById(ctx, pgtype.UUID{Bytes: assigneeUUID, Valid: true})
@@ -157,7 +157,7 @@ func (s *svc) UpdateTask(ctx context.Context, taskID string, payload updateTaskP
 func (s *svc) DeleteTask(ctx context.Context, taskID string) error {
 	id, err := uuid.Parse(taskID)
 	if err != nil {
-		return codeerror.New(codeerror.TaskNotFound, "Task not found")
+		return codeerror.New(codeerror.InvalidUUID, "Invalid task ID")
 	}
 
 	_, err = s.repo.GetTaskById(ctx, pgtype.UUID{Bytes: id, Valid: true})
@@ -175,7 +175,7 @@ func (s *svc) DeleteTask(ctx context.Context, taskID string) error {
 func (s *svc) GetProjectTasks(ctx context.Context, projectID string, page, pageSize int) (getProjectTasksResponse, error) {
 	id, err := uuid.Parse(projectID)
 	if err != nil {
-		return getProjectTasksResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
+		return getProjectTasksResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid project ID")
 	}
 
 	_, err = s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
