@@ -23,6 +23,7 @@ func (app *application) routes() http.Handler {
 	emailService := email.NewEmailService(app.resend)
 	paymentService := payment.NewStripeService(app.stripe, repo.New(app.db))
 	subscriptionsService := subscriptions.NewSubscriptionsService(repo.New(app.db), app.db, app.stripe)
+	subscriptionsHandler := subscriptions.NewSubscriptionsHandler(subscriptionsService)
 	paymentHandler := payment.NewPaymentHandler(*paymentService, subscriptionsService, *emailService)
 
 	authService := auth.NewAuthService(repo.New(app.db), app.db)
@@ -71,6 +72,9 @@ func (app *application) routes() http.Handler {
 		authGroup.PATCH("/workspaces/:id", workspaceHandler.UpdateWorkspace)
 		authGroup.DELETE("/workspaces/:id", workspaceHandler.DeleteWorkspace)
 		authGroup.POST("/workspaces/:id/checkout", workspaceHandler.CreateCheckoutSession)
+
+		/* Subscriptions routes */
+		authGroup.GET("/workspaces/:id/subscription", subscriptionsHandler.GetWorkspaceSubscription)
 
 		/* Workspace Members routes */
 		authGroup.GET("/workspaces/:id/members", workspaceMembersHandler.GetWorkspaceMembers)

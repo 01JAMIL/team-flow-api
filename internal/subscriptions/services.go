@@ -16,6 +16,7 @@ type Service interface {
 	UpdateSubscription(ctx context.Context, payload UpdateSubscriptionPayload) (repo.Subscription, error)
 	GetSubscription(subscriptionID string) (*stripe.Subscription, error)
 	DeactivateSubscription(ctx context.Context, stripeSubscriptionID string) (repo.Subscription, error)
+	GetWorkspaceSubscription(ctx context.Context, workspaceID, userID string) (subscriptionResponse, error)
 }
 
 type svc struct {
@@ -91,4 +92,42 @@ func (s *svc) GetSubscription(
 		subscriptionID,
 		nil,
 	)
+}
+
+func (s *svc) GetWorkspaceSubscription(ctx context.Context, workspaceID, userID string) (subscriptionResponse, error) {
+	workspaceUUID, err := uuid.Parse(workspaceID)
+	if err != nil {
+		return subscriptionResponse{}, codeerror.New(codeerror.InvalidUUID, "Workspace ID is not a valid UUID")
+	}
+
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return subscriptionResponse{}, codeerror.New(codeerror.InvalidUUID, "User ID is not a valid UUID")
+	}
+
+	_, err = s.repo.GetUserWorkspaceByID(ctx, repo.GetUserWorkspaceByIDParams{
+		ID:     pgtype.UUID{Bytes: workspaceUUID, Valid: true},
+		UserID: pgtype.UUID{Bytes: userUUID, Valid: true},
+	})
+	if err != nil {
+		return subscriptionResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+	}
+
+	subscription, err := s.repo.GetWorkspaceActiveSubscription(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
+	if err != nil {
+		return subscriptionResponse{}, codeerror.New(codeerror.SubscriptionNotFound, "Subscription not found")
+	}
+
+	return subscriptionResponse{
+		ID:                   subscription.ID.String(),
+		WorkspaceID:          subscription.WorkspaceID.String(),
+		StripeSubscriptionID: subscription.StripeSubscriptionID,
+		StripePriceID:        subscription.StripePriceID,
+		Status:               subscription.Status,
+		Plan:                 subscription.Plan,
+		CurrentPeriodStart:   subscription.CurrentPeriodStart,
+		CurrentPeriodEnd:     subscription.CurrentPeriodEnd,
+		CreatedAt:            subscription.CreatedAt,
+		UpdatedAt:            subscription.UpdatedAt,
+	}, nil
 }
