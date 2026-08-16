@@ -1,0 +1,8 @@
+.idea/
+.vscode/
+
+.git/
+
+.env
+
+.DS_Store

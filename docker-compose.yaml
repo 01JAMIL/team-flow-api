@@ -17,5 +17,20 @@ services:
       timeout: 5s
       retries: 5
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gin-api-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      GOOSE_DBSTRING: host=postgres user=${DATABASE_USERNAME} password=${DATABASE_PASSWORD} dbname=${DATABASE_NAME} sslmode=disable
+    ports:
+      - "${PORT:-3700}:${PORT:-3700}"
+    depends_on:
+      postgres:
+        condition: service_healthy
 volumes:
   postgres_data:
