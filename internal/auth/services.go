@@ -17,12 +17,19 @@ type Service interface {
 	Login(ctx context.Context, payload loginPayload) (authResponse, error)
 }
 
+// Interface for the database dependency.
+type authRepository interface {
+	GetUserByEmail(ctx context.Context, email string) (repo.User, error)
+	GetUserById(ctx context.Context, id pgtype.UUID) (repo.User, error)
+	Register(ctx context.Context, arg repo.RegisterParams) (repo.User, error)
+}
+
 type svc struct {
-	repo *repo.Queries
+	repo authRepository
 	db   *pgx.Conn
 }
 
-func NewAuthService(repo *repo.Queries, db *pgx.Conn) Service {
+func NewAuthService(repo authRepository, db *pgx.Conn) Service {
 	return &svc{
 		repo: repo,
 		db:   db,
