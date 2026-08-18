@@ -13,12 +13,12 @@ import (
 
 type mockAuthRepository struct {
 	getUserByEmailFunc func(ctx context.Context, email string) (repo.User, error)
-	getUserByIdFunc    func(ctx context.Context, id string) (repo.User, error)
+	getUserByIdFunc    func(ctx context.Context, id pgtype.UUID) (repo.User, error)
 	registerFunc       func(ctx context.Context, arg repo.RegisterParams) (repo.User, error)
 }
 
 func (f *mockAuthRepository) GetUserById(ctx context.Context, id pgtype.UUID) (repo.User, error) {
-	panic("implement me")
+	return f.getUserByIdFunc(ctx, id)
 }
 
 func (f *mockAuthRepository) GetUserByEmail(ctx context.Context, email string) (repo.User, error) {
@@ -179,4 +179,33 @@ func TestRegister_UserAlreadyExists(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when user already exists")
 	}
+}
+
+func TestRegister_UserNotFound(t *testing.T) {
+	ctx := context.Background()
+
+	userID := uuid.New()
+
+	fakeRepo := &mockAuthRepository{
+		// Simulate: user not exist
+		getUserByIdFunc: func(
+			ctx context.Context,
+			id pgtype.UUID,
+		) (repo.User, error) {
+			return repo.User{}, pgx.ErrNoRows
+		},
+	}
+
+	service := &svc{
+		repo: fakeRepo,
+	}
+
+	// Act
+	_, err := service.GetUserById(ctx, userID.String())
+
+	// Assert
+	if err == nil {
+		t.Fatal("expected error when user already exists")
+	}
+
 }
