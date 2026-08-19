@@ -15,12 +15,18 @@ type Service interface {
 	GetMessagesBetweenUsers(ctx context.Context, loggedUserID, otherUserID string, page, pageSize int) (getMessagesResponse, error)
 }
 
+type messagesRepository interface {
+	GetUserById(ctx context.Context, id pgtype.UUID) (repo.User, error)
+	CreateMessage(ctx context.Context, arg repo.CreateMessageParams) (repo.Message, error)
+	GetMessagesBetweenUsers(ctx context.Context, arg repo.GetMessagesBetweenUsersParams) ([]repo.GetMessagesBetweenUsersRow, error)
+}
+
 type svc struct {
-	repo *repo.Queries
+	repo messagesRepository
 	db   *pgx.Conn
 }
 
-func NewMessagesService(repo *repo.Queries, db *pgx.Conn) Service {
+func NewMessagesService(repo messagesRepository, db *pgx.Conn) Service {
 	return &svc{
 		repo: repo,
 		db:   db,
