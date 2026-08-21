@@ -1,4 +1,4 @@
-# Gin API — Team Flow
+# Gin API — Team Flow Backend
 
 A production-style **REST API + WebSocket backend** for a project-management / team-collaboration SaaS ("Team Flow"), built with **Go**, the **Gin** framework, **PostgreSQL** (via **pgx + sqlc**), and integrated with **Stripe** for billing and **Resend** for transactional email.
 
