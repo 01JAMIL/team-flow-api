@@ -45,11 +45,6 @@ func main() {
 
 	ctx := context.Background()
 
-	if err := migrations.Run(ctx, cfg.db.dsn); err != nil {
-		log.Fatalf("migration failed: %v", err)
-	}
-	log.Println("Database migrations applied successfully")
-
 	conn, pgErr := pgx.Connect(ctx, cfg.db.dsn)
 	if pgErr != nil {
 		panic(pgErr)
@@ -57,6 +52,11 @@ func main() {
 	defer conn.Close(ctx)
 
 	log.Println("Database connected successfully")
+
+	if err := migrations.Run(ctx, cfg.db.dsn); err != nil {
+		log.Fatalf("migration failed: %v", err)
+	}
+	log.Println("Database migrations applied successfully")
 
 	client := resend.NewClient(env.GetEnvString("RESEND_API_KEY", "re_xx"))
 	sc := stripe.NewClient(env.GetEnvString("STRIPE_SECRET_KEY", "stripe_xx"))
