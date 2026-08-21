@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"gin-api-1/internal/adapters/postgresql/migrations"
 	"gin-api-1/internal/env"
 	"log"
 
@@ -43,6 +44,12 @@ func main() {
 	}
 
 	ctx := context.Background()
+
+	if err := migrations.Run(ctx, cfg.db.dsn); err != nil {
+		log.Fatalf("migration failed: %v", err)
+	}
+	log.Println("Database migrations applied successfully")
+
 	conn, pgErr := pgx.Connect(ctx, cfg.db.dsn)
 	if pgErr != nil {
 		panic(pgErr)
