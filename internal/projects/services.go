@@ -3,6 +3,7 @@ package projects
 import (
 	"context"
 	"errors"
+	"fmt"
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	codeerror "gin-api-1/internal/codeerror"
 
@@ -46,6 +47,9 @@ func (s *svc) WorkspaceExists(ctx context.Context, workspaceID string) error {
 }
 
 func (s *svc) ensureAdminMember(ctx context.Context, workspaceID, loggedUserID, action string) error {
+
+	fmt.Println("Ensuring admin member")
+
 	workspaceUUID, err := uuid.Parse(workspaceID)
 	if err != nil {
 		return codeerror.New(codeerror.InvalidUUID, "Invalid workspace ID")
