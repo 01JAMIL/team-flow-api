@@ -33,6 +33,8 @@ jobs:
       - run: make build
 
   docker:
+    if: github.event_name == 'push'
+
     # Make docker job wait for test so this job depends on the test job.
     # needs transfers the dependency relationship, not the filesystem.
     needs: test
