@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
     tags:
       - 'v*'
 
@@ -56,6 +57,7 @@ jobs:
           images: 01jamil/team-flow
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
             type=semver,pattern={{version}}
 
       - uses: docker/build-push-action@v6
@@ -69,11 +71,28 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy:
+  deploy-dev:
     needs: docker
     runs-on: ubuntu-latest
 
+    if: github.ref == 'refs/heads/develop'
+
+    environment: Development
+
     steps:
-      - name: Trigger Render deployment
+      - name: Trigger Development Deployment
         run: |
-          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
+          curl -X POST "${{ secrets.RENDER_DEV_DEPLOY_HOOK }}"
+
+  deploy-prod:
+    needs: docker
+    runs-on: ubuntu-latest
+
+    if: github.ref == 'refs/heads/main'
+
+    environment: Production
+
+    steps:
+      - name: Trigger Production Deployment
+        run: |
+          curl -X POST ${{ secrets.RENDER_PROD_DEPLOY_HOOK }}
