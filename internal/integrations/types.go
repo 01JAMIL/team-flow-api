@@ -14,3 +14,19 @@ type createIntegrationTaskParams struct {
 	AssigneeID     pgtype.UUID `json:"assigneeId" binding:"required"`
 	Payload        []byte      `json:"payload" binding:"required"`
 }
+
+type gitHubIssueWebhookPayload struct {
+	Action string `json:"action"`
+
+	Issue struct {
+		ID     int64  `json:"id"`
+		Number int    `json:"number"`
+		Title  string `json:"title"`
+		Body   string `json:"body"`
+		State  string `json:"state"`
+	} `json:"issue"`
+
+	Repository struct {
+		FullName string `json:"full_name"`
+	} `json:"repository"`
+}
