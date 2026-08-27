@@ -67,6 +67,78 @@ func (q *Queries) CountWorkspaceProjects(ctx context.Context, workspaceID pgtype
 	return count, err
 }
 
+const createIntegrationTask = `-- name: CreateIntegrationTask :one
+INSERT INTO integration_tasks (id,
+                               provider,
+                               resource_type,
+                               external_id,
+                               repository_name,
+                               issue_number,
+                               title,
+                               description,
+                               status,
+                               assignee_id,
+                               payload)
+VALUES ($1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        $8,
+        $9,
+        $10,
+        $11) RETURNING id, provider, resource_type, external_id, repository_name, issue_number, title, description, status, assignee_id, payload, created_at, updated_at
+`
+
+type CreateIntegrationTaskParams struct {
+	ID             pgtype.UUID `json:"id"`
+	Provider       string      `json:"provider"`
+	ResourceType   string      `json:"resource_type"`
+	ExternalID     string      `json:"external_id"`
+	RepositoryName string      `json:"repository_name"`
+	IssueNumber    int32       `json:"issue_number"`
+	Title          string      `json:"title"`
+	Description    pgtype.Text `json:"description"`
+	Status         string      `json:"status"`
+	AssigneeID     pgtype.UUID `json:"assignee_id"`
+	Payload        []byte      `json:"payload"`
+}
+
+func (q *Queries) CreateIntegrationTask(ctx context.Context, arg CreateIntegrationTaskParams) (IntegrationTask, error) {
+	row := q.db.QueryRow(ctx, createIntegrationTask,
+		arg.ID,
+		arg.Provider,
+		arg.ResourceType,
+		arg.ExternalID,
+		arg.RepositoryName,
+		arg.IssueNumber,
+		arg.Title,
+		arg.Description,
+		arg.Status,
+		arg.AssigneeID,
+		arg.Payload,
+	)
+	var i IntegrationTask
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.ResourceType,
+		&i.ExternalID,
+		&i.RepositoryName,
+		&i.IssueNumber,
+		&i.Title,
+		&i.Description,
+		&i.Status,
+		&i.AssigneeID,
+		&i.Payload,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createMessage = `-- name: CreateMessage :one
 INSERT INTO messages (id, sender_id, receiver_id, content)
 VALUES ($1, $2, $3, $4) RETURNING id, sender_id, receiver_id, content, created_at

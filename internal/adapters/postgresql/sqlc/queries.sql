@@ -243,3 +243,27 @@ SELECT *
 FROM subscriptions
 WHERE workspace_id = $1
   AND status = 'ACTIVE' LIMIT 1;
+
+-- name: CreateIntegrationTask :one
+INSERT INTO integration_tasks (id,
+                               provider,
+                               resource_type,
+                               external_id,
+                               repository_name,
+                               issue_number,
+                               title,
+                               description,
+                               status,
+                               assignee_id,
+                               payload)
+VALUES ($1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        $8,
+        $9,
+        $10,
+        $11) RETURNING *;
