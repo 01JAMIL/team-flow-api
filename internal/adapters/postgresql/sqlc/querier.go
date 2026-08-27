@@ -14,6 +14,7 @@ type Querier interface {
 	AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) (WorkspaceMember, error)
 	CountUserWorkspaces(ctx context.Context, userID pgtype.UUID) (int64, error)
 	CountWorkspaceProjects(ctx context.Context, workspaceID pgtype.UUID) (int64, error)
+	CreateIntegrationTask(ctx context.Context, arg CreateIntegrationTaskParams) (IntegrationTask, error)
 	CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error)
 	CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error)
 	CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error)
