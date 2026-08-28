@@ -22,6 +22,7 @@ type IntegrationTask struct {
 	Payload        []byte             `json:"payload"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ProjectID      pgtype.UUID        `json:"project_id"`
 }
 
 type Message struct {
@@ -39,6 +40,18 @@ type Project struct {
 	WorkspaceID pgtype.UUID        `json:"workspace_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ProjectIntegration struct {
+	ID              pgtype.UUID        `json:"id"`
+	ProjectID       pgtype.UUID        `json:"project_id"`
+	Provider        string             `json:"provider"`
+	RepositoryOwner string             `json:"repository_owner"`
+	RepositoryName  string             `json:"repository_name"`
+	WebhookSecret   string             `json:"webhook_secret"`
+	IsActive        bool               `json:"is_active"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Subscription struct {

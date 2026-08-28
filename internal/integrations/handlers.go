@@ -2,12 +2,9 @@ package integrations
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
+	"gin-api-1/internal/auth"
 	"gin-api-1/internal/codeerror"
-	"gin-api-1/internal/env"
 	"io"
 	"net/http"
 	"strconv"
@@ -26,6 +23,58 @@ func NewIntegrationsHandler(service Service) *handler {
 	}
 }
 
+func (h *handler) ConnectRepository(c *gin.Context) {
+	projectID := c.Param("projectID")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
+
+	var payload connectRepositoryPayload
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		codeerror.HandleError(c, codeerror.NewBindingError(err))
+		return
+	}
+
+	response, err := h.service.ConnectRepository(c, projectID, loggedUser.ID, payload)
+	if err != nil {
+		codeerror.HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message":     "Repository connected successfully",
+		"integration": response,
+	})
+}
+
+func (h *handler) GetProjectIntegration(c *gin.Context) {
+	projectID := c.Param("projectID")
+
+	integration, err := h.service.GetProjectIntegration(c, projectID)
+	if err != nil {
+		codeerror.HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"integration": integration,
+	})
+}
+
+func (h *handler) RegenerateSecret(c *gin.Context) {
+	projectID := c.Param("projectID")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
+
+	response, err := h.service.RegenerateSecret(c, projectID, loggedUser.ID)
+	if err != nil {
+		codeerror.HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":     "Webhook secret regenerated successfully",
+		"integration": response,
+	})
+}
+
 func (h *handler) CreateIntegrationTask(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -34,17 +83,6 @@ func (h *handler) CreateIntegrationTask(c *gin.Context) {
 	}
 
 	signature := c.GetHeader("X-Hub-Signature-256")
-
-	secret := env.GetEnvString("GITHUB_WEBHOOK_SECRET", "")
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write(body)
-	expectedMAC := "sha256=" + hex.EncodeToString(mac.Sum(nil))
-
-	if !hmac.Equal([]byte(signature), []byte(expectedMAC)) {
-		c.Status(http.StatusUnauthorized)
-		return
-	}
-
 	event := c.GetHeader("X-GitHub-Event")
 
 	if event == "ping" {
@@ -81,7 +119,7 @@ func (h *handler) CreateIntegrationTask(c *gin.Context) {
 		Payload:        body,
 	}
 
-	integrationTask, err := h.service.CreateIntegrationTask(context.Background(), payload)
+	integrationTask, err := h.service.CreateIntegrationTask(context.Background(), body, signature, payload)
 	if err != nil {
 		codeerror.HandleError(c, err)
 		return

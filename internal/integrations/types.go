@@ -13,6 +13,36 @@ type createIntegrationTaskParams struct {
 	Status         string      `json:"status" binding:"required"`
 	AssigneeID     pgtype.UUID `json:"assigneeId" binding:"required"`
 	Payload        []byte      `json:"payload" binding:"required"`
+	ProjectID      string      `json:"projectId"`
+}
+
+type connectRepositoryPayload struct {
+	Repository string `json:"repository" binding:"required"`
+}
+
+type connectRepositoryResponse struct {
+	Provider      string `json:"provider"`
+	Repository    string `json:"repository"`
+	WebhookURL    string `json:"webhookUrl"`
+	WebhookSecret string `json:"webhookSecret"`
+}
+
+type projectIntegrationResponse struct {
+	ID              string             `json:"id"`
+	ProjectID       string             `json:"projectId"`
+	Provider        string             `json:"provider"`
+	RepositoryOwner string             `json:"repositoryOwner"`
+	RepositoryName  string             `json:"repositoryName"`
+	IsActive        bool               `json:"isActive"`
+	CreatedAt       pgtype.Timestamptz `json:"createdAt"`
+	UpdatedAt       pgtype.Timestamptz `json:"updatedAt"`
+}
+
+type regenerateSecretResponse struct {
+	Provider      string `json:"provider"`
+	Repository    string `json:"repository"`
+	WebhookURL    string `json:"webhookUrl"`
+	WebhookSecret string `json:"webhookSecret"`
 }
 
 type gitHubIssueWebhookPayload struct {
@@ -29,4 +59,8 @@ type gitHubIssueWebhookPayload struct {
 	Repository struct {
 		FullName string `json:"full_name"`
 	} `json:"repository"`
+}
+
+type gitHubRepoResponse struct {
+	FullName string `json:"full_name"`
 }
