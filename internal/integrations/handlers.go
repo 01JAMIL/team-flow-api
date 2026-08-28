@@ -63,6 +63,22 @@ func (h *handler) GetProjectIntegration(c *gin.Context) {
 	})
 }
 
+func (h *handler) RegenerateSecret(c *gin.Context) {
+	projectID := c.Param("projectID")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
+
+	response, err := h.service.RegenerateSecret(c, projectID, loggedUser.ID)
+	if err != nil {
+		codeerror.HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":     "Webhook secret regenerated successfully",
+		"integration": response,
+	})
+}
+
 func (h *handler) CreateIntegrationTask(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {

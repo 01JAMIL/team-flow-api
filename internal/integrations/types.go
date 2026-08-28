@@ -33,10 +33,16 @@ type projectIntegrationResponse struct {
 	Provider        string             `json:"provider"`
 	RepositoryOwner string             `json:"repositoryOwner"`
 	RepositoryName  string             `json:"repositoryName"`
-	WebhookSecret   string             `json:"webhookSecret"`
 	IsActive        bool               `json:"isActive"`
 	CreatedAt       pgtype.Timestamptz `json:"createdAt"`
 	UpdatedAt       pgtype.Timestamptz `json:"updatedAt"`
+}
+
+type regenerateSecretResponse struct {
+	Provider      string `json:"provider"`
+	Repository    string `json:"repository"`
+	WebhookURL    string `json:"webhookUrl"`
+	WebhookSecret string `json:"webhookSecret"`
 }
 
 type gitHubIssueWebhookPayload struct {

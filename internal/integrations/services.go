@@ -21,6 +21,7 @@ var repositoryPattern = regexp.MustCompile(`^[A-Za-z0-9-_.]+/[A-Za-z0-9-_.]+$`)
 type Service interface {
 	ConnectRepository(ctx context.Context, projectID, loggedUserID string, payload connectRepositoryPayload) (connectRepositoryResponse, error)
 	GetProjectIntegration(ctx context.Context, projectID string) (projectIntegrationResponse, error)
+	RegenerateSecret(ctx context.Context, projectID, loggedUserID string) (regenerateSecretResponse, error)
 	CreateIntegrationTask(ctx context.Context, payload createIntegrationTaskParams) (repo.IntegrationTask, error)
 }
 
@@ -119,10 +120,53 @@ func (s *svc) GetProjectIntegration(ctx context.Context, projectID string) (proj
 		Provider:        integration.Provider,
 		RepositoryOwner: integration.RepositoryOwner,
 		RepositoryName:  integration.RepositoryName,
-		WebhookSecret:   integration.WebhookSecret,
 		IsActive:        integration.IsActive,
 		CreatedAt:       integration.CreatedAt,
 		UpdatedAt:       integration.UpdatedAt,
+	}, nil
+}
+
+func (s *svc) RegenerateSecret(ctx context.Context, projectID, loggedUserID string) (regenerateSecretResponse, error) {
+	projectUUID, err := uuid.Parse(projectID)
+	if err != nil {
+		return regenerateSecretResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
+	}
+
+	integration, err := s.repo.GetProjectIntegrationByProjectID(ctx, pgtype.UUID{Bytes: projectUUID, Valid: true})
+	if err != nil {
+		return regenerateSecretResponse{}, codeerror.New(codeerror.ProjectNotFound, "No integration found for this project")
+	}
+
+	project, err := s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: projectUUID, Valid: true})
+	if err != nil {
+		return regenerateSecretResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
+	}
+
+	if err := s.ensureAdminMember(ctx, project.WorkspaceID.String(), loggedUserID); err != nil {
+		return regenerateSecretResponse{}, err
+	}
+
+	webhookSecret, err := generateWebhookSecret()
+	if err != nil {
+		return regenerateSecretResponse{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to generate webhook secret", err)
+	}
+
+	updated, err := s.repo.UpdateProjectIntegrationWebhookSecret(ctx, repo.UpdateProjectIntegrationWebhookSecretParams{
+		ID:            integration.ID,
+		WebhookSecret: webhookSecret,
+	})
+	if err != nil {
+		return regenerateSecretResponse{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to regenerate webhook secret", err)
+	}
+
+	baseURL := env.GetEnvString("APP_BASE_URL", "http://localhost:3700")
+	webhookURL := baseURL + "/api/v1/webhooks/github"
+
+	return regenerateSecretResponse{
+		Provider:      updated.Provider,
+		Repository:    updated.RepositoryOwner + "/" + updated.RepositoryName,
+		WebhookURL:    webhookURL,
+		WebhookSecret: updated.WebhookSecret,
 	}, nil
 }
 

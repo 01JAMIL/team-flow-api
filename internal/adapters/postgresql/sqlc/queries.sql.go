@@ -1143,6 +1143,35 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (P
 	return i, err
 }
 
+const updateProjectIntegrationWebhookSecret = `-- name: UpdateProjectIntegrationWebhookSecret :one
+UPDATE project_integrations
+SET webhook_secret = $2,
+    updated_at     = now()
+WHERE id = $1 RETURNING id, project_id, provider, repository_owner, repository_name, webhook_secret, is_active, created_at, updated_at
+`
+
+type UpdateProjectIntegrationWebhookSecretParams struct {
+	ID            pgtype.UUID `json:"id"`
+	WebhookSecret string      `json:"webhook_secret"`
+}
+
+func (q *Queries) UpdateProjectIntegrationWebhookSecret(ctx context.Context, arg UpdateProjectIntegrationWebhookSecretParams) (ProjectIntegration, error) {
+	row := q.db.QueryRow(ctx, updateProjectIntegrationWebhookSecret, arg.ID, arg.WebhookSecret)
+	var i ProjectIntegration
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Provider,
+		&i.RepositoryOwner,
+		&i.RepositoryName,
+		&i.WebhookSecret,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateSubscription = `-- name: UpdateSubscription :one
 UPDATE subscriptions
 SET stripe_price_id      = $2,

@@ -274,6 +274,12 @@ VALUES ($1,
 INSERT INTO project_integrations (id, project_id, provider, repository_owner, repository_name, webhook_secret)
 VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;
 
+-- name: UpdateProjectIntegrationWebhookSecret :one
+UPDATE project_integrations
+SET webhook_secret = $2,
+    updated_at     = now()
+WHERE id = $1 RETURNING *;
+
 -- name: GetProjectIntegrationByProjectID :one
 SELECT *
 FROM project_integrations
