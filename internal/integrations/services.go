@@ -2,7 +2,9 @@ package integrations
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
@@ -22,7 +24,7 @@ type Service interface {
 	ConnectRepository(ctx context.Context, projectID, loggedUserID string, payload connectRepositoryPayload) (connectRepositoryResponse, error)
 	GetProjectIntegration(ctx context.Context, projectID string) (projectIntegrationResponse, error)
 	RegenerateSecret(ctx context.Context, projectID, loggedUserID string) (regenerateSecretResponse, error)
-	CreateIntegrationTask(ctx context.Context, payload createIntegrationTaskParams) (repo.IntegrationTask, error)
+	CreateIntegrationTask(ctx context.Context, body []byte, signature string, payload createIntegrationTaskParams) (repo.IntegrationTask, error)
 }
 
 type svc struct {
@@ -209,30 +211,23 @@ func generateWebhookSecret() (string, error) {
 	return hex.EncodeToString(secret), nil
 }
 
-func (s *svc) CreateIntegrationTask(ctx context.Context, payload createIntegrationTaskParams) (repo.IntegrationTask, error) {
-	pk := uuid.New()
+func (s *svc) CreateIntegrationTask(ctx context.Context, body []byte, signature string, payload createIntegrationTaskParams) (repo.IntegrationTask, error) {
+	owner, repositoryName := splitRepository(payload.RepositoryName)
 
-	projectUUID := pgtype.UUID{}
-	if payload.ProjectID != "" {
-		parsed, err := uuid.Parse(payload.ProjectID)
-		if err != nil {
-			return repo.IntegrationTask{}, codeerror.New(codeerror.InvalidUUID, "Invalid project ID")
-		}
-		projectUUID = pgtype.UUID{Bytes: parsed, Valid: true}
-	} else {
-		owner, repositoryName := splitRepository(payload.RepositoryName)
-
-		integration, err := s.repo.GetProjectIntegrationByRepository(ctx, repo.GetProjectIntegrationByRepositoryParams{
-			Provider:        payload.Provider,
-			RepositoryOwner: owner,
-			RepositoryName:  repositoryName,
-		})
-		if err != nil {
-			return repo.IntegrationTask{}, codeerror.New(codeerror.ProjectNotFound, "No project connected to this repository")
-		}
-
-		projectUUID = integration.ProjectID
+	integration, err := s.repo.GetProjectIntegrationByRepository(ctx, repo.GetProjectIntegrationByRepositoryParams{
+		Provider:        payload.Provider,
+		RepositoryOwner: owner,
+		RepositoryName:  repositoryName,
+	})
+	if err != nil {
+		return repo.IntegrationTask{}, codeerror.New(codeerror.ProjectNotFound, "No project connected to this repository")
 	}
+
+	if !verifyWebhookSignature(body, signature, integration.WebhookSecret) {
+		return repo.IntegrationTask{}, codeerror.New(codeerror.StatusUnauthorized, "Invalid webhook signature")
+	}
+
+	pk := uuid.New()
 
 	integrationTask, err := s.repo.CreateIntegrationTask(ctx, repo.CreateIntegrationTaskParams{
 		ID:             pgtype.UUID{Bytes: pk, Valid: true},
@@ -246,7 +241,7 @@ func (s *svc) CreateIntegrationTask(ctx context.Context, payload createIntegrati
 		Status:         payload.Status,
 		AssigneeID:     payload.AssigneeID,
 		Payload:        payload.Payload,
-		ProjectID:      projectUUID,
+		ProjectID:      integration.ProjectID,
 	})
 
 	if err != nil {
@@ -254,4 +249,12 @@ func (s *svc) CreateIntegrationTask(ctx context.Context, payload createIntegrati
 	}
 
 	return integrationTask, nil
+}
+
+func verifyWebhookSignature(body []byte, signature, secret string) bool {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	expectedMAC := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+
+	return hmac.Equal([]byte(signature), []byte(expectedMAC))
 }

@@ -2,13 +2,9 @@ package integrations
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"gin-api-1/internal/auth"
 	"gin-api-1/internal/codeerror"
-	"gin-api-1/internal/env"
 	"io"
 	"net/http"
 	"strconv"
@@ -87,17 +83,6 @@ func (h *handler) CreateIntegrationTask(c *gin.Context) {
 	}
 
 	signature := c.GetHeader("X-Hub-Signature-256")
-
-	secret := env.GetEnvString("GITHUB_WEBHOOK_SECRET", "")
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write(body)
-	expectedMAC := "sha256=" + hex.EncodeToString(mac.Sum(nil))
-
-	if !hmac.Equal([]byte(signature), []byte(expectedMAC)) {
-		c.Status(http.StatusUnauthorized)
-		return
-	}
-
 	event := c.GetHeader("X-GitHub-Event")
 
 	if event == "ping" {
@@ -134,7 +119,7 @@ func (h *handler) CreateIntegrationTask(c *gin.Context) {
 		Payload:        body,
 	}
 
-	integrationTask, err := h.service.CreateIntegrationTask(context.Background(), payload)
+	integrationTask, err := h.service.CreateIntegrationTask(context.Background(), body, signature, payload)
 	if err != nil {
 		codeerror.HandleError(c, err)
 		return
