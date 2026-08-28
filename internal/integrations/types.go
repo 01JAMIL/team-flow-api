@@ -13,6 +13,18 @@ type createIntegrationTaskParams struct {
 	Status         string      `json:"status" binding:"required"`
 	AssigneeID     pgtype.UUID `json:"assigneeId" binding:"required"`
 	Payload        []byte      `json:"payload" binding:"required"`
+	ProjectID      string      `json:"projectId"`
+}
+
+type connectRepositoryPayload struct {
+	Repository string `json:"repository" binding:"required"`
+}
+
+type connectRepositoryResponse struct {
+	Provider      string `json:"provider"`
+	Repository    string `json:"repository"`
+	WebhookURL    string `json:"webhookUrl"`
+	WebhookSecret string `json:"webhookSecret"`
 }
 
 type gitHubIssueWebhookPayload struct {
@@ -29,4 +41,8 @@ type gitHubIssueWebhookPayload struct {
 	Repository struct {
 		FullName string `json:"full_name"`
 	} `json:"repository"`
+}
+
+type gitHubRepoResponse struct {
+	FullName string `json:"full_name"`
 }

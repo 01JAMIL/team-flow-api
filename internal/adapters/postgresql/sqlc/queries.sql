@@ -255,7 +255,8 @@ INSERT INTO integration_tasks (id,
                                description,
                                status,
                                assignee_id,
-                               payload)
+                               payload,
+                               project_id)
 VALUES ($1,
         $2,
         $3,
@@ -266,4 +267,21 @@ VALUES ($1,
         $8,
         $9,
         $10,
-        $11) RETURNING *;
+        $11,
+        $12) RETURNING *;
+
+-- name: CreateProjectIntegration :one
+INSERT INTO project_integrations (id, project_id, provider, repository_owner, repository_name, webhook_secret)
+VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;
+
+-- name: GetProjectIntegrationByProjectID :one
+SELECT *
+FROM project_integrations
+WHERE project_id = $1;
+
+-- name: GetProjectIntegrationByRepository :one
+SELECT *
+FROM project_integrations
+WHERE provider = $1
+  AND repository_owner = $2
+  AND repository_name = $3;

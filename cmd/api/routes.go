@@ -93,6 +93,9 @@ func (app *application) routes() http.Handler {
 		authGroup.PATCH("/projects/:projectID", projectsHandler.UpdateProject)
 		authGroup.DELETE("/projects/:projectID", projectsHandler.DeleteProject)
 
+		/* Integrations routes */
+		authGroup.POST("/projects/:projectID/integrations/github", integrationsHandler.ConnectRepository)
+
 		/* Tasks routes */
 		authGroup.POST("/projects/:projectID/tasks", tasksHandler.CreateTask)
 		authGroup.GET("/projects/:projectID/tasks", tasksHandler.GetProjectTasks)

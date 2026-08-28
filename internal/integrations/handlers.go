@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"gin-api-1/internal/auth"
 	"gin-api-1/internal/codeerror"
 	"gin-api-1/internal/env"
 	"io"
@@ -24,6 +25,28 @@ func NewIntegrationsHandler(service Service) *handler {
 	return &handler{
 		service: service,
 	}
+}
+
+func (h *handler) ConnectRepository(c *gin.Context) {
+	projectID := c.Param("projectID")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
+
+	var payload connectRepositoryPayload
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		codeerror.HandleError(c, codeerror.NewBindingError(err))
+		return
+	}
+
+	response, err := h.service.ConnectRepository(c, projectID, loggedUser.ID, payload)
+	if err != nil {
+		codeerror.HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message":     "Repository connected successfully",
+		"integration": response,
+	})
 }
 
 func (h *handler) CreateIntegrationTask(c *gin.Context) {
