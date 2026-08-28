@@ -27,6 +27,18 @@ type connectRepositoryResponse struct {
 	WebhookSecret string `json:"webhookSecret"`
 }
 
+type projectIntegrationResponse struct {
+	ID              string             `json:"id"`
+	ProjectID       string             `json:"projectId"`
+	Provider        string             `json:"provider"`
+	RepositoryOwner string             `json:"repositoryOwner"`
+	RepositoryName  string             `json:"repositoryName"`
+	WebhookSecret   string             `json:"webhookSecret"`
+	IsActive        bool               `json:"isActive"`
+	CreatedAt       pgtype.Timestamptz `json:"createdAt"`
+	UpdatedAt       pgtype.Timestamptz `json:"updatedAt"`
+}
+
 type gitHubIssueWebhookPayload struct {
 	Action string `json:"action"`
 

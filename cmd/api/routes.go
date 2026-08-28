@@ -95,6 +95,7 @@ func (app *application) routes() http.Handler {
 
 		/* Integrations routes */
 		authGroup.POST("/projects/:projectID/integrations/github", integrationsHandler.ConnectRepository)
+		authGroup.GET("/projects/:projectID/integrations/github", integrationsHandler.GetProjectIntegration)
 
 		/* Tasks routes */
 		authGroup.POST("/projects/:projectID/tasks", tasksHandler.CreateTask)

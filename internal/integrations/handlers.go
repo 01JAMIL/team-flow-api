@@ -49,6 +49,20 @@ func (h *handler) ConnectRepository(c *gin.Context) {
 	})
 }
 
+func (h *handler) GetProjectIntegration(c *gin.Context) {
+	projectID := c.Param("projectID")
+
+	integration, err := h.service.GetProjectIntegration(c, projectID)
+	if err != nil {
+		codeerror.HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"integration": integration,
+	})
+}
+
 func (h *handler) CreateIntegrationTask(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {

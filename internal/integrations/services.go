@@ -20,6 +20,7 @@ var repositoryPattern = regexp.MustCompile(`^[A-Za-z0-9-_.]+/[A-Za-z0-9-_.]+$`)
 
 type Service interface {
 	ConnectRepository(ctx context.Context, projectID, loggedUserID string, payload connectRepositoryPayload) (connectRepositoryResponse, error)
+	GetProjectIntegration(ctx context.Context, projectID string) (projectIntegrationResponse, error)
 	CreateIntegrationTask(ctx context.Context, payload createIntegrationTaskParams) (repo.IntegrationTask, error)
 }
 
@@ -98,6 +99,30 @@ func (s *svc) ConnectRepository(ctx context.Context, projectID, loggedUserID str
 		Repository:    integration.RepositoryOwner + "/" + integration.RepositoryName,
 		WebhookURL:    webhookURL,
 		WebhookSecret: integration.WebhookSecret,
+	}, nil
+}
+
+func (s *svc) GetProjectIntegration(ctx context.Context, projectID string) (projectIntegrationResponse, error) {
+	projectUUID, err := uuid.Parse(projectID)
+	if err != nil {
+		return projectIntegrationResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
+	}
+
+	integration, err := s.repo.GetProjectIntegrationByProjectID(ctx, pgtype.UUID{Bytes: projectUUID, Valid: true})
+	if err != nil {
+		return projectIntegrationResponse{}, codeerror.New(codeerror.ProjectNotFound, "No integration found for this project")
+	}
+
+	return projectIntegrationResponse{
+		ID:              integration.ID.String(),
+		ProjectID:       integration.ProjectID.String(),
+		Provider:        integration.Provider,
+		RepositoryOwner: integration.RepositoryOwner,
+		RepositoryName:  integration.RepositoryName,
+		WebhookSecret:   integration.WebhookSecret,
+		IsActive:        integration.IsActive,
+		CreatedAt:       integration.CreatedAt,
+		UpdatedAt:       integration.UpdatedAt,
 	}, nil
 }
 
