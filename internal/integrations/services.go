@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	codeerror "gin-api-1/internal/codeerror"
 	"gin-api-1/internal/env"
@@ -71,6 +72,7 @@ func (s *svc) ConnectRepository(ctx context.Context, projectID, loggedUserID str
 	owner, repositoryName := splitRepository(payload.Repository)
 
 	if err := s.github.RepositoryExists(ctx, owner, repositoryName); err != nil {
+		fmt.Printf("Error checking if repository exists: %v\n", err)
 		if errors.Is(err, errRepositoryNotFound) {
 			return connectRepositoryResponse{}, codeerror.New(codeerror.RepositoryNotFound, "Repository not found")
 		}
