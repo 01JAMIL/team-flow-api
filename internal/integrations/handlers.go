@@ -6,6 +6,7 @@ import (
 	"gin-api-1/internal/auth"
 	"gin-api-1/internal/codeerror"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -85,23 +86,32 @@ func (h *handler) CreateIntegrationTask(c *gin.Context) {
 	signature := c.GetHeader("X-Hub-Signature-256")
 	event := c.GetHeader("X-GitHub-Event")
 
+	log.Printf("CreateIntegrationTask: received event=%q signature=%q", event, signature)
+
 	if event == "ping" {
+		log.Printf("CreateIntegrationTask: ping event, ignoring")
 		c.Status(http.StatusOK)
 		return
 	}
 
 	if event != "issues" {
+		log.Printf("CreateIntegrationTask: event %q is not 'issues', ignoring", event)
 		c.Status(http.StatusOK)
 		return
 	}
 
 	var gitHubPayload gitHubIssueWebhookPayload
 	if err := json.Unmarshal(body, &gitHubPayload); err != nil {
+		log.Printf("CreateIntegrationTask: failed to unmarshal body: %v", err)
 		codeerror.HandleError(c, codeerror.NewBindingError(err))
 		return
 	}
 
+	log.Printf("CreateIntegrationTask: received issue event action=%q repository=%q issue_number=%d title=%q",
+		gitHubPayload.Action, gitHubPayload.Repository.FullName, gitHubPayload.Issue.Number, gitHubPayload.Issue.Title)
+
 	if gitHubPayload.Action != "opened" {
+		log.Printf("CreateIntegrationTask: action %q is not 'opened', ignoring", gitHubPayload.Action)
 		c.Status(http.StatusOK)
 		return
 	}

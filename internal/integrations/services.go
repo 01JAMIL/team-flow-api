@@ -10,6 +10,7 @@ import (
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	codeerror "gin-api-1/internal/codeerror"
 	"gin-api-1/internal/env"
+	"log"
 	"regexp"
 	"strings"
 
@@ -214,18 +215,26 @@ func generateWebhookSecret() (string, error) {
 func (s *svc) CreateIntegrationTask(ctx context.Context, body []byte, signature string, payload createIntegrationTaskParams) (repo.IntegrationTask, error) {
 	owner, repositoryName := splitRepository(payload.RepositoryName)
 
+	log.Printf("CreateIntegrationTask: looking up integration for provider=%s owner=%s repo=%s", payload.Provider, owner, repositoryName)
+
 	integration, err := s.repo.GetProjectIntegrationByRepository(ctx, repo.GetProjectIntegrationByRepositoryParams{
 		Provider:        payload.Provider,
 		RepositoryOwner: owner,
 		RepositoryName:  repositoryName,
 	})
 	if err != nil {
+		log.Printf("CreateIntegrationTask: integration not found for owner=%s repo=%s: %v", owner, repositoryName, err)
 		return repo.IntegrationTask{}, codeerror.New(codeerror.ProjectNotFound, "No project connected to this repository")
 	}
 
+	log.Printf("CreateIntegrationTask: integration found for project=%s with webhook_secret present=%v", integration.ProjectID.String(), integration.WebhookSecret != "")
+
 	if !verifyWebhookSignature(body, signature, integration.WebhookSecret) {
+		log.Printf("CreateIntegrationTask: signature verification FAILED (signature=%q)", signature)
 		return repo.IntegrationTask{}, codeerror.New(codeerror.StatusUnauthorized, "Invalid webhook signature")
 	}
+
+	log.Printf("CreateIntegrationTask: signature verified OK")
 
 	pk := uuid.New()
 
@@ -245,9 +254,11 @@ func (s *svc) CreateIntegrationTask(ctx context.Context, body []byte, signature 
 	})
 
 	if err != nil {
+		log.Printf("CreateIntegrationTask: failed to create integration task: %v", err)
 		return repo.IntegrationTask{}, err
 	}
 
+	log.Printf("CreateIntegrationTask: integration task created with id=%s", integrationTask.ID.String())
 	return integrationTask, nil
 }
 
