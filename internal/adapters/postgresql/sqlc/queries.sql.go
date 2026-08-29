@@ -1115,6 +1115,41 @@ func (q *Queries) Register(ctx context.Context, arg RegisterParams) (User, error
 	return i, err
 }
 
+const updateIntegrationTaskStatus = `-- name: UpdateIntegrationTaskStatus :one
+UPDATE integration_tasks
+SET status = $3
+WHERE external_id = $1
+  AND project_id = $2 RETURNING id, provider, resource_type, external_id, repository_name, issue_number, title, description, status, assignee_id, payload, created_at, updated_at, project_id
+`
+
+type UpdateIntegrationTaskStatusParams struct {
+	ExternalID string      `json:"external_id"`
+	ProjectID  pgtype.UUID `json:"project_id"`
+	Status     string      `json:"status"`
+}
+
+func (q *Queries) UpdateIntegrationTaskStatus(ctx context.Context, arg UpdateIntegrationTaskStatusParams) (IntegrationTask, error) {
+	row := q.db.QueryRow(ctx, updateIntegrationTaskStatus, arg.ExternalID, arg.ProjectID, arg.Status)
+	var i IntegrationTask
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.ResourceType,
+		&i.ExternalID,
+		&i.RepositoryName,
+		&i.IssueNumber,
+		&i.Title,
+		&i.Description,
+		&i.Status,
+		&i.AssigneeID,
+		&i.Payload,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ProjectID,
+	)
+	return i, err
+}
+
 const updateProject = `-- name: UpdateProject :one
 UPDATE projects
 SET name        = $2,

@@ -101,12 +101,7 @@ func (h *handler) CreateIntegrationTask(c *gin.Context) {
 		return
 	}
 
-	if gitHubPayload.Action != "opened" {
-		c.Status(http.StatusOK)
-		return
-	}
-
-	payload := createIntegrationTaskParams{
+	createPayload := createIntegrationTaskParams{
 		Provider:       "github",
 		ResourceType:   "issue",
 		ExternalID:     strconv.FormatInt(gitHubPayload.Issue.ID, 10),
@@ -119,14 +114,37 @@ func (h *handler) CreateIntegrationTask(c *gin.Context) {
 		Payload:        body,
 	}
 
-	integrationTask, err := h.service.CreateIntegrationTask(context.Background(), body, signature, payload)
-	if err != nil {
-		codeerror.HandleError(c, err)
-		return
-	}
+	switch gitHubPayload.Action {
+	case "opened":
+		integrationTask, err := h.service.CreateIntegrationTask(context.Background(), body, signature, createPayload)
+		if err != nil {
+			codeerror.HandleError(c, err)
+			return
+		}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message":         "integration task created",
-		"integrationTask": integrationTask,
-	})
+		c.JSON(http.StatusCreated, gin.H{
+			"message":         "integration task created",
+			"integrationTask": integrationTask,
+		})
+	case "closed":
+		updatePayload := updateIntegrationTaskStatusParams{
+			Provider:       "github",
+			RepositoryName: gitHubPayload.Repository.FullName,
+			ExternalID:     strconv.FormatInt(gitHubPayload.Issue.ID, 10),
+			Status:         "closed",
+		}
+
+		integrationTask, err := h.service.UpdateIntegrationTaskStatus(context.Background(), body, signature, updatePayload)
+		if err != nil {
+			codeerror.HandleError(c, err)
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":         "integration task status updated",
+			"integrationTask": integrationTask,
+		})
+	default:
+		c.Status(http.StatusOK)
+	}
 }
