@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gin-api-1/internal/env"
 	"net/http"
 )
 
@@ -12,11 +13,13 @@ var errRepositoryNotFound = errors.New("repository not found")
 
 type gitHubClient struct {
 	httpClient *http.Client
+	token      string
 }
 
 func newGitHubClient() *gitHubClient {
 	return &gitHubClient{
 		httpClient: &http.Client{},
+		token:      env.GetEnvString("GITHUB_TOKEN", ""),
 	}
 }
 
@@ -27,6 +30,11 @@ func (c *gitHubClient) RepositoryExists(ctx context.Context, owner, name string)
 	}
 
 	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "gin-api")
+
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
