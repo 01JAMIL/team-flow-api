@@ -20,6 +20,13 @@ type connectRepositoryPayload struct {
 	Repository string `json:"repository" binding:"required"`
 }
 
+type updateIntegrationTaskStatusParams struct {
+	Provider       string `json:"provider"`
+	RepositoryName string `json:"repositoryName"`
+	ExternalID     string `json:"externalId"`
+	Status         string `json:"status"`
+}
+
 type connectRepositoryResponse struct {
 	Provider      string `json:"provider"`
 	Repository    string `json:"repository"`

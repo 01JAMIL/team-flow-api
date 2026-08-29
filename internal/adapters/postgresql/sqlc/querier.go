@@ -45,6 +45,7 @@ type Querier interface {
 	GetWorkspaceMembers(ctx context.Context, arg GetWorkspaceMembersParams) ([]GetWorkspaceMembersRow, error)
 	GetWorkspaceProjects(ctx context.Context, arg GetWorkspaceProjectsParams) ([]GetWorkspaceProjectsRow, error)
 	Register(ctx context.Context, arg RegisterParams) (User, error)
+	UpdateIntegrationTaskStatus(ctx context.Context, arg UpdateIntegrationTaskStatusParams) (IntegrationTask, error)
 	UpdateProject(ctx context.Context, arg UpdateProjectParams) (Project, error)
 	UpdateProjectIntegrationWebhookSecret(ctx context.Context, arg UpdateProjectIntegrationWebhookSecretParams) (ProjectIntegration, error)
 	UpdateSubscription(ctx context.Context, arg UpdateSubscriptionParams) (Subscription, error)

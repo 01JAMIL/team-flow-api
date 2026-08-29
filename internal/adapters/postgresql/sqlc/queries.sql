@@ -291,3 +291,9 @@ FROM project_integrations
 WHERE provider = $1
   AND repository_owner = $2
   AND repository_name = $3;
+
+-- name: UpdateIntegrationTaskStatus :one
+UPDATE integration_tasks
+SET status = $3
+WHERE external_id = $1
+  AND project_id = $2 RETURNING *;

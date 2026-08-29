@@ -25,6 +25,7 @@ type Service interface {
 	GetProjectIntegration(ctx context.Context, projectID string) (projectIntegrationResponse, error)
 	RegenerateSecret(ctx context.Context, projectID, loggedUserID string) (regenerateSecretResponse, error)
 	CreateIntegrationTask(ctx context.Context, body []byte, signature string, payload createIntegrationTaskParams) (repo.IntegrationTask, error)
+	UpdateIntegrationTaskStatus(ctx context.Context, body []byte, signature string, payload updateIntegrationTaskStatusParams) (repo.IntegrationTask, error)
 }
 
 type svc struct {
@@ -212,19 +213,9 @@ func generateWebhookSecret() (string, error) {
 }
 
 func (s *svc) CreateIntegrationTask(ctx context.Context, body []byte, signature string, payload createIntegrationTaskParams) (repo.IntegrationTask, error) {
-	owner, repositoryName := splitRepository(payload.RepositoryName)
-
-	integration, err := s.repo.GetProjectIntegrationByRepository(ctx, repo.GetProjectIntegrationByRepositoryParams{
-		Provider:        payload.Provider,
-		RepositoryOwner: owner,
-		RepositoryName:  repositoryName,
-	})
+	integration, err := s.resolveIntegration(ctx, payload.Provider, payload.RepositoryName, body, signature)
 	if err != nil {
-		return repo.IntegrationTask{}, codeerror.New(codeerror.ProjectNotFound, "No project connected to this repository")
-	}
-
-	if !verifyWebhookSignature(body, signature, integration.WebhookSecret) {
-		return repo.IntegrationTask{}, codeerror.New(codeerror.StatusUnauthorized, "Invalid webhook signature")
+		return repo.IntegrationTask{}, err
 	}
 
 	pk := uuid.New()
@@ -249,6 +240,43 @@ func (s *svc) CreateIntegrationTask(ctx context.Context, body []byte, signature 
 	}
 
 	return integrationTask, nil
+}
+
+func (s *svc) UpdateIntegrationTaskStatus(ctx context.Context, body []byte, signature string, payload updateIntegrationTaskStatusParams) (repo.IntegrationTask, error) {
+	integration, err := s.resolveIntegration(ctx, payload.Provider, payload.RepositoryName, body, signature)
+	if err != nil {
+		return repo.IntegrationTask{}, err
+	}
+
+	integrationTask, err := s.repo.UpdateIntegrationTaskStatus(ctx, repo.UpdateIntegrationTaskStatusParams{
+		ExternalID: payload.ExternalID,
+		ProjectID:  integration.ProjectID,
+		Status:     payload.Status,
+	})
+	if err != nil {
+		return repo.IntegrationTask{}, codeerror.New(codeerror.ProjectNotFound, "Integration task not found")
+	}
+
+	return integrationTask, nil
+}
+
+func (s *svc) resolveIntegration(ctx context.Context, provider, repositoryName string, body []byte, signature string) (repo.ProjectIntegration, error) {
+	owner, name := splitRepository(repositoryName)
+
+	integration, err := s.repo.GetProjectIntegrationByRepository(ctx, repo.GetProjectIntegrationByRepositoryParams{
+		Provider:        provider,
+		RepositoryOwner: owner,
+		RepositoryName:  name,
+	})
+	if err != nil {
+		return repo.ProjectIntegration{}, codeerror.New(codeerror.ProjectNotFound, "No project connected to this repository")
+	}
+
+	if !verifyWebhookSignature(body, signature, integration.WebhookSecret) {
+		return repo.ProjectIntegration{}, codeerror.New(codeerror.StatusUnauthorized, "Invalid webhook signature")
+	}
+
+	return integration, nil
 }
 
 func verifyWebhookSignature(body []byte, signature, secret string) bool {
