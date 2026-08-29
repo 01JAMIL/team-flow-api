@@ -2,7 +2,7 @@
 
 A production-style **REST API + WebSocket backend** for a project-management / team-collaboration SaaS ("Team Flow"), built with **Go**, the **Gin** framework, **PostgreSQL** (via **pgx + sqlc**), and integrated with **Stripe** for billing and **Resend** for transactional email.
 
-It covers the full backend lifecycle: authentication, workspaces, workspace members (with roles), projects, tasks, real-time messaging, and a complete Stripe subscription/billing flow with webhooks and email notifications.
+It covers the full backend lifecycle: authentication, workspaces, workspace members (with roles), projects, tasks, real-time messaging, GitHub repository integrations with webhook-driven issue sync, and a complete Stripe subscription/billing flow with webhooks and email notifications.
 
 ---
 
@@ -36,6 +36,12 @@ It covers the full backend lifecycle: authentication, workspaces, workspace memb
   - Messages between users over **WebSocket** (`/api/v1/ws`).
   - Sending a message to yourself is rejected (`SELF_MESSAGE_NOT_ALLOWED`).
   - Message history endpoint `GET /api/v1/messages/:userId` with **pagination** (newest first, both directions).
+
+- **GitHub Integrations**
+  - Connect a project to a GitHub repository (`username/repo_name`), verifying the repo via the GitHub API.
+  - Each integration stores its own **webhook secret** (`crypto/rand`), used to verify incoming GitHub webhook payloads (HMAC-SHA256).
+  - `GET /projects/:projectID/integrations/github` returns the connected integration; `POST .../regenerate-secret` rotates the webhook secret (**ADMIN only**).
+  - GitHub **issue** webhooks are parsed into `integration_tasks`: an issue `opened` creates a task (status `open`), and `closed` updates it to status `closed`.
 
 - **Billing & Subscriptions (Stripe)**
   - Checkout session creation per workspace (`POST /workspaces/:id/checkout`).
@@ -80,12 +86,13 @@ gin-api-1/
 │   └── routes.go                 # All route registration + dependency wiring
 ├── internal/
 │   ├── adapters/postgresql/
-│   │   ├── migrations/           # goose SQL migrations 00001–00008
+│   │   ├── migrations/           # goose SQL migrations 00001–00012
 │   │   └── sqlc/                 # generated repo (models.go, queries.sql.go, db.go, querier.go)
 │   ├── auth/                     # register/login, JWT, bcrypt, auth middleware
 │   ├── codeerror/                # centralized error codes + HTTP status mapping
 │   ├── email/                    # Resend email service (welcome, payment failed)
 │   ├── env/                      # environment variable helpers
+│   ├── integrations/             # GitHub repo connect/status/regenerate + webhook issue sync
 │   ├── messages/                 # messaging service + handlers + types
 │   ├── payment/                  # Stripe service + webhook handler
 │   ├── projects/                 # project CRUD (ADMIN-gated, free-plan limits)
@@ -140,6 +147,12 @@ GOOSE_DBSTRING=host=localhost user=postgres password=postgres dbname=gin-api-1 s
 # Secrets (change these!)
 JWT_SECRET=change_me
 
+# Base URL used to build the GitHub webhook URL returned when connecting a repository
+APP_BASE_URL=http://localhost:3700
+
+# GitHub (optional but recommended) — used to verify repositories via the GitHub API without hitting rate limits
+GITHUB_TOKEN=
+
 # Stripe
 STRIPE_SECRET_KEY=sk_test_xxx
 STRIPE_WEBHOOK_SECRET=whsec_xxx
@@ -186,6 +199,8 @@ sqlc generate
 | `PORT` | no | `8080` | HTTP port the API listens on |
 | `GOOSE_DBSTRING` | yes* | `host=localhost user=postgres password=postgres dbname=postgres sslmode=disable` | PostgreSQL connection DSN |
 | `JWT_SECRET` | no* | `secret_123456` | Secret used to sign JWT tokens |
+| `APP_BASE_URL` | no | `http://localhost:3700` | Base URL used to build the GitHub webhook URL in integration responses |
+| `GITHUB_TOKEN` | no | `""` | GitHub personal access token for the GitHub API (avoids unauthenticated rate limits when verifying repositories) |
 | `STRIPE_SECRET_KEY` | yes* | `stripe_xx` | Stripe API secret key |
 | `STRIPE_WEBHOOK_SECRET` | no | `""` | Signature verification for webhooks |
 | `STRIPE_PRO_PRICE_ID` | no | `price_xx` | Price ID used for the PRO checkout |
@@ -213,6 +228,7 @@ Authorization: Bearer <token>
 | `POST` | `/auth/register` | Create an account + JWT |
 | `POST` | `/auth/login` | Login + JWT |
 | `POST` | `/webhooks/stripe` | Stripe webhook receiver (no auth) |
+| `POST` | `/webhooks/github` | GitHub webhook receiver — syncs issue events into `integration_tasks` (no auth) |
 
 #### Register — `POST /auth/register`
 
@@ -386,6 +402,70 @@ Response `201`:
 
 > Dates are parsed as `YYYY-MM-DD` (`INVALID_DATE` on bad input). Updates only touch fields you include (nil-coalesced SQL).
 
+### Integrations (GitHub)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/projects/:projectID/integrations/github` | Get the project's connected repository |
+| `POST` | `/projects/:projectID/integrations/github` | Connect a repository to the project (**ADMIN only**) |
+| `POST` | `/projects/:projectID/integrations/github/regenerate-secret` | Rotate the webhook secret (**ADMIN only**) |
+
+#### Get integration — `GET /projects/:projectID/integrations/github`
+
+```json
+{
+  "integration": {
+    "id": "...", "projectId": "...", "provider": "github",
+    "repositoryOwner": "01JAMIL", "repositoryName": "team-flow",
+    "isActive": true, "createdAt": "...", "updatedAt": "..."
+  }
+}
+```
+
+> Returns `PROJECT_NOT_FOUND` if no repository is connected to the project. The `webhookSecret` is deliberately **not** exposed here.
+
+#### Connect repository — `POST /projects/:projectID/integrations/github`
+
+```json
+{ "repository": "01JAMIL/team-flow" }
+```
+
+Response `201`:
+
+```json
+{
+  "message": "Repository connected successfully",
+  "integration": {
+    "provider": "github",
+    "repository": "01JAMIL/team-flow",
+    "webhookUrl": "https://your-domain/api/v1/webhooks/github",
+    "webhookSecret": "...generated..."
+  }
+}
+```
+
+> **Flow:** validates the `owner/repo_name` format → loads the project → checks the caller is an **ADMIN** workspace member (`FORBIDDEN` otherwise) → ensures the project isn't already connected (`INTEGRATION_ALREADY_EXISTS`) → verifies the repository exists via `https://api.github.com/repos/{owner}/{repo_name}` (`REPOSITORY_NOT_FOUND`) → generates a `crypto/rand` webhook secret → persists the integration.
+>
+> Point the GitHub webhook at the returned `webhookUrl` (Content type `application/json`, select the **Issues** event) and set the **Secret** to `webhookSecret`.
+
+#### Regenerate secret — `POST /projects/:projectID/integrations/github/regenerate-secret`
+
+Response `200`:
+
+```json
+{
+  "message": "Webhook secret regenerated successfully",
+  "integration": {
+    "provider": "github",
+    "repository": "01JAMIL/team-flow",
+    "webhookUrl": "https://your-domain/api/v1/webhooks/github",
+    "webhookSecret": "...newly generated..."
+  }
+}
+```
+
+> **ADMIN only.** Rotates the stored webhook secret, so any GitHub webhook must be reconfigured with the new value.
+
 ### Messaging
 
 | Method | Path | Description |
@@ -461,9 +541,9 @@ Common codes:
 |------|------|
 | `UNAUTHORIZED`, `INVALID_TOKEN`, `MISSING_TOKEN`, `INVALID_CREDENTIALS` | 401 |
 | `FORBIDDEN`, `FREE_PLAN_WORKSPACE_LIMIT_REACHED`, `FREE_PLAN_PROJECT_LIMIT_REACHED`, `PRO_PLAN_REQUIRED` | 403 |
-| `NOT_FOUND`, `WORKSPACE_NOT_FOUND`, `PROJECT_NOT_FOUND`, `TASK_NOT_FOUND`, `USER_NOT_FOUND`, `MEMBER_NOT_FOUND`, `SUBSCRIPTION_NOT_FOUND` | 404 |
-| `CONFLICT`, `USER_ALREADY_EXIST`, `MEMBER_ALREADY_EXISTS` | 409 |
-| `BAD_REQUEST`, `VALIDATION_ERROR`, `INVALID_UUID`, `INVALID_DATE`, `SELF_MESSAGE_NOT_ALLOWED`, `FAILED_TO_DEACTIVATE_SUBSCRIPTION` | 400 |
+| `NOT_FOUND`, `WORKSPACE_NOT_FOUND`, `PROJECT_NOT_FOUND`, `TASK_NOT_FOUND`, `USER_NOT_FOUND`, `MEMBER_NOT_FOUND`, `SUBSCRIPTION_NOT_FOUND`, `REPOSITORY_NOT_FOUND` | 404 |
+| `CONFLICT`, `USER_ALREADY_EXIST`, `MEMBER_ALREADY_EXISTS`, `INTEGRATION_ALREADY_EXISTS` | 409 |
+| `BAD_REQUEST`, `VALIDATION_ERROR`, `INVALID_UUID`, `INVALID_DATE`, `SELF_MESSAGE_NOT_ALLOWED`, `FAILED_TO_DEACTIVATE_SUBSCRIPTION`, `INVALID_REPOSITORY_FORMAT` | 400 |
 | anything else / raw errors | 500 (logged, generic message) |
 
 ---
@@ -502,9 +582,23 @@ Webhook payloads are verified against `STRIPE_WEBHOOK_SECRET` with `webhook.Cons
 
 ---
 
+## GitHub Webhook Flow
+
+1. **Connect** — `POST /projects/:projectID/integrations/github` verifies the repo on GitHub and stores the integration with a per-project `webhook_secret`. The response exposes the webhook URL (`{APP_BASE_URL}/api/v1/webhooks/github`) you configure in the repository's **Settings → Webhooks**.
+
+2. **Webhook: issue `opened`** — GitHub signs the payload with HMAC-SHA256 using the integration's `webhook_secret`. The handler looks up the integration by `repository/repository_name` (`PROJECT_NOT_FOUND` / 404 if nothing is connected), recomputes and compares the `X-Hub-Signature-256` header (`UNAUTHORIZED` / 401 on mismatch), then inserts an `integration_tasks` row with `status='open'`.
+
+3. **Webhook: issue `closed`** — same verification; the matching `integration_tasks` row (by `external_id`) is updated to `status='closed'`.
+
+4. **Regenerate** — `POST .../regenerate-secret` rotates the `webhook_secret`; point the GitHub webhook's **Secret** field at the new value.
+
+Outgoing calls to `api.github.com` include `User-Agent: gin-api` and (when `GITHUB_TOKEN` is set) an `Authorization: Bearer` header so unauthenticated rate limits don't break repository verification.
+
+---
+
 ## Database Schema
 
-Eight tables (migrations `00001`–`00008`), all keyed by **UUID** primary keys:
+Ten tables (migrations `00001`–`00012`), all keyed by **UUID** primary keys:
 
 ```
 users (id, first_name, last_name, email UNIQUE, password, created_at, updated_at)
@@ -519,7 +613,17 @@ messages (id, sender_id FK→users, receiver_id FK→users, content, created_at)
 subscriptions (id, workspace_id FK→workspaces, stripe_subscription_id UNIQUE, stripe_price_id,
                status CHECK IN ('ACTIVE','INACTIVE'), plan CHECK IN ('PRO','BUSINESS','ENTERPRISE'),
                current_period_start, current_period_end, created_at, updated_at)
+project_integrations (id, project_id FK→projects ON DELETE CASCADE, provider CHECK IN ('github','gitlab','jira'),
+                      repository_owner, repository_name, webhook_secret, is_active DEFAULT TRUE,
+                      created_at, updated_at, UNIQUE (provider, repository_owner, repository_name))
+integration_tasks (id, project_id FK→projects ON DELETE CASCADE, provider CHECK IN ('github','gitlab','jira'),
+                   resource_type CHECK IN ('issue','pull_request','ticket','merge_request'),
+                   external_id UNIQUE, repository_name, issue_number, title, description,
+                   status CHECK IN ('open','closed'), assignee_id FK→users ON DELETE SET NULL,
+                   payload JSONB, created_at, updated_at)
 ```
+
+Migrations `00009`/`00010`/`00012` add the integration tables; `00011` indexes `project_integrations` on `(provider, repository_owner, repository_name)` for fast webhook lookup.
 
 ---
 
@@ -528,6 +632,7 @@ subscriptions (id, workspace_id FK→workspaces, stripe_subscription_id UNIQUE, 
 ```bash
 make run          # run the API
 make build        # build ./bin/api
+make test         # run all unit tests (verbose)
 make docker-up    # start PostgreSQL
 make docker-down  # stop PostgreSQL
 
@@ -540,4 +645,4 @@ goose -dir internal/adapters/postgresql/migrations postgres "$GOOSE_DBSTRING" do
 
 ## Notes
 
-- The app is intended for **learning/portfolio** purposes — it demonstrates clean layering (handlers → services → generated repo), centralized error handling, RBAC, free/pro plan gating, transactions, pagination, and a WebSocket hub. For production, you'd add request timeouts/rate limiting, structured logging, connection pooling (`pgxpool`), refresh tokens, and automated tests.
+- The app is intended for **learning/portfolio** purposes — it demonstrates clean layering (handlers → services → generated repo), centralized error handling, RBAC, free/pro plan gating, transactions, pagination, an interface-based service layer for testability, and a WebSocket hub. Unit tests live alongside the services under `internal/auth`, `internal/messages`, and `internal/integrations` (run `make test` or `go test ./...`). For production, you'd add request timeouts/rate limiting, structured logging, connection pooling (`pgxpool`), refresh tokens, and integration tests against a real database.

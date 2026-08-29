@@ -54,6 +54,11 @@ const (
 	FreePlanWorkspaceLimitReached = "FREE_PLAN_WORKSPACE_LIMIT_REACHED"
 	FreePlanProjectLimitReached   = "FREE_PLAN_PROJECT_LIMIT_REACHED"
 	ProPlanRequired               = "PRO_PLAN_REQUIRED"
+
+	// Integrations Codes.
+	InvalidRepositoryFormat  = "INVALID_REPOSITORY_FORMAT"
+	IntegrationAlreadyExists = "INTEGRATION_ALREADY_EXISTS"
+	RepositoryNotFound       = "REPOSITORY_NOT_FOUND"
 )
 
 // Error is the application error carrying a machine-readable Code and a
@@ -167,10 +172,12 @@ func HTTPStatus(err error) int {
 		return http.StatusForbidden
 	case StatusNotFound, WorkspaceNotFound, ProjectNotFound, TaskNotFound, UserNotFound, MemberNotFound, SubscriptionNotFound:
 		return http.StatusNotFound
-	case StatusConflict, UserAlreadyExist, MemberAlreadyExists:
+	case StatusConflict, UserAlreadyExist, MemberAlreadyExists, IntegrationAlreadyExists:
 		return http.StatusConflict
-	case StatusBadRequest, ValidationError, InvalidDate, InvalidUUID, SelfMessageNotAllowed, FailedToDeactivateSubscription:
+	case StatusBadRequest, ValidationError, InvalidDate, InvalidUUID, SelfMessageNotAllowed, FailedToDeactivateSubscription, InvalidRepositoryFormat:
 		return http.StatusBadRequest
+	case RepositoryNotFound:
+		return http.StatusNotFound
 	default:
 		return http.StatusInternalServerError
 	}

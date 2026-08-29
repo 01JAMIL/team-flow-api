@@ -4,6 +4,7 @@ import (
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	"gin-api-1/internal/auth"
 	"gin-api-1/internal/email"
+	"gin-api-1/internal/integrations"
 	"gin-api-1/internal/messages"
 	"gin-api-1/internal/payment"
 	"gin-api-1/internal/projects"
@@ -44,6 +45,9 @@ func (app *application) routes() http.Handler {
 	messageService := messages.NewMessagesService(repo.New(app.db), app.db)
 	messagesHandler := messages.NewMessagesHandler(messageService)
 
+	integrationsService := integrations.NewIntegrationsService(repo.New(app.db), app.db)
+	integrationsHandler := integrations.NewIntegrationsHandler(integrationsService)
+
 	/* Public routes */
 	v1 := r.Group("/api/v1")
 	{
@@ -58,6 +62,7 @@ func (app *application) routes() http.Handler {
 
 		// Webhooks
 		v1.POST("/webhooks/stripe", paymentHandler.HandleWebhook)
+		v1.POST("/webhooks/github", integrationsHandler.CreateIntegrationTask)
 	}
 
 	authGroup := v1.Group("/")
@@ -87,6 +92,11 @@ func (app *application) routes() http.Handler {
 		authGroup.GET("/projects/:projectID", projectsHandler.GetProjectByID)
 		authGroup.PATCH("/projects/:projectID", projectsHandler.UpdateProject)
 		authGroup.DELETE("/projects/:projectID", projectsHandler.DeleteProject)
+
+		/* Integrations routes */
+		authGroup.POST("/projects/:projectID/integrations/github", integrationsHandler.ConnectRepository)
+		authGroup.GET("/projects/:projectID/integrations/github", integrationsHandler.GetProjectIntegration)
+		authGroup.POST("/projects/:projectID/integrations/github/regenerate-secret", integrationsHandler.RegenerateSecret)
 
 		/* Tasks routes */
 		authGroup.POST("/projects/:projectID/tasks", tasksHandler.CreateTask)

@@ -243,3 +243,57 @@ SELECT *
 FROM subscriptions
 WHERE workspace_id = $1
   AND status = 'ACTIVE' LIMIT 1;
+
+-- name: CreateIntegrationTask :one
+INSERT INTO integration_tasks (id,
+                               provider,
+                               resource_type,
+                               external_id,
+                               repository_name,
+                               issue_number,
+                               title,
+                               description,
+                               status,
+                               assignee_id,
+                               payload,
+                               project_id)
+VALUES ($1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        $8,
+        $9,
+        $10,
+        $11,
+        $12) RETURNING *;
+
+-- name: CreateProjectIntegration :one
+INSERT INTO project_integrations (id, project_id, provider, repository_owner, repository_name, webhook_secret)
+VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;
+
+-- name: UpdateProjectIntegrationWebhookSecret :one
+UPDATE project_integrations
+SET webhook_secret = $2,
+    updated_at     = now()
+WHERE id = $1 RETURNING *;
+
+-- name: GetProjectIntegrationByProjectID :one
+SELECT *
+FROM project_integrations
+WHERE project_id = $1;
+
+-- name: GetProjectIntegrationByRepository :one
+SELECT *
+FROM project_integrations
+WHERE provider = $1
+  AND repository_owner = $2
+  AND repository_name = $3;
+
+-- name: UpdateIntegrationTaskStatus :one
+UPDATE integration_tasks
+SET status = $3
+WHERE external_id = $1
+  AND project_id = $2 RETURNING *;

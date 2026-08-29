@@ -67,6 +67,83 @@ func (q *Queries) CountWorkspaceProjects(ctx context.Context, workspaceID pgtype
 	return count, err
 }
 
+const createIntegrationTask = `-- name: CreateIntegrationTask :one
+INSERT INTO integration_tasks (id,
+                               provider,
+                               resource_type,
+                               external_id,
+                               repository_name,
+                               issue_number,
+                               title,
+                               description,
+                               status,
+                               assignee_id,
+                               payload,
+                               project_id)
+VALUES ($1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        $8,
+        $9,
+        $10,
+        $11,
+        $12) RETURNING id, provider, resource_type, external_id, repository_name, issue_number, title, description, status, assignee_id, payload, created_at, updated_at, project_id
+`
+
+type CreateIntegrationTaskParams struct {
+	ID             pgtype.UUID `json:"id"`
+	Provider       string      `json:"provider"`
+	ResourceType   string      `json:"resource_type"`
+	ExternalID     string      `json:"external_id"`
+	RepositoryName string      `json:"repository_name"`
+	IssueNumber    int32       `json:"issue_number"`
+	Title          string      `json:"title"`
+	Description    pgtype.Text `json:"description"`
+	Status         string      `json:"status"`
+	AssigneeID     pgtype.UUID `json:"assignee_id"`
+	Payload        []byte      `json:"payload"`
+	ProjectID      pgtype.UUID `json:"project_id"`
+}
+
+func (q *Queries) CreateIntegrationTask(ctx context.Context, arg CreateIntegrationTaskParams) (IntegrationTask, error) {
+	row := q.db.QueryRow(ctx, createIntegrationTask,
+		arg.ID,
+		arg.Provider,
+		arg.ResourceType,
+		arg.ExternalID,
+		arg.RepositoryName,
+		arg.IssueNumber,
+		arg.Title,
+		arg.Description,
+		arg.Status,
+		arg.AssigneeID,
+		arg.Payload,
+		arg.ProjectID,
+	)
+	var i IntegrationTask
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.ResourceType,
+		&i.ExternalID,
+		&i.RepositoryName,
+		&i.IssueNumber,
+		&i.Title,
+		&i.Description,
+		&i.Status,
+		&i.AssigneeID,
+		&i.Payload,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ProjectID,
+	)
+	return i, err
+}
+
 const createMessage = `-- name: CreateMessage :one
 INSERT INTO messages (id, sender_id, receiver_id, content)
 VALUES ($1, $2, $3, $4) RETURNING id, sender_id, receiver_id, content, created_at
@@ -122,6 +199,44 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		&i.Name,
 		&i.Description,
 		&i.WorkspaceID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createProjectIntegration = `-- name: CreateProjectIntegration :one
+INSERT INTO project_integrations (id, project_id, provider, repository_owner, repository_name, webhook_secret)
+VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, project_id, provider, repository_owner, repository_name, webhook_secret, is_active, created_at, updated_at
+`
+
+type CreateProjectIntegrationParams struct {
+	ID              pgtype.UUID `json:"id"`
+	ProjectID       pgtype.UUID `json:"project_id"`
+	Provider        string      `json:"provider"`
+	RepositoryOwner string      `json:"repository_owner"`
+	RepositoryName  string      `json:"repository_name"`
+	WebhookSecret   string      `json:"webhook_secret"`
+}
+
+func (q *Queries) CreateProjectIntegration(ctx context.Context, arg CreateProjectIntegrationParams) (ProjectIntegration, error) {
+	row := q.db.QueryRow(ctx, createProjectIntegration,
+		arg.ID,
+		arg.ProjectID,
+		arg.Provider,
+		arg.RepositoryOwner,
+		arg.RepositoryName,
+		arg.WebhookSecret,
+	)
+	var i ProjectIntegration
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Provider,
+		&i.RepositoryOwner,
+		&i.RepositoryName,
+		&i.WebhookSecret,
+		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -437,6 +552,60 @@ func (q *Queries) GetProjectById(ctx context.Context, id pgtype.UUID) (Project, 
 		&i.Name,
 		&i.Description,
 		&i.WorkspaceID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getProjectIntegrationByProjectID = `-- name: GetProjectIntegrationByProjectID :one
+SELECT id, project_id, provider, repository_owner, repository_name, webhook_secret, is_active, created_at, updated_at
+FROM project_integrations
+WHERE project_id = $1
+`
+
+func (q *Queries) GetProjectIntegrationByProjectID(ctx context.Context, projectID pgtype.UUID) (ProjectIntegration, error) {
+	row := q.db.QueryRow(ctx, getProjectIntegrationByProjectID, projectID)
+	var i ProjectIntegration
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Provider,
+		&i.RepositoryOwner,
+		&i.RepositoryName,
+		&i.WebhookSecret,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getProjectIntegrationByRepository = `-- name: GetProjectIntegrationByRepository :one
+SELECT id, project_id, provider, repository_owner, repository_name, webhook_secret, is_active, created_at, updated_at
+FROM project_integrations
+WHERE provider = $1
+  AND repository_owner = $2
+  AND repository_name = $3
+`
+
+type GetProjectIntegrationByRepositoryParams struct {
+	Provider        string `json:"provider"`
+	RepositoryOwner string `json:"repository_owner"`
+	RepositoryName  string `json:"repository_name"`
+}
+
+func (q *Queries) GetProjectIntegrationByRepository(ctx context.Context, arg GetProjectIntegrationByRepositoryParams) (ProjectIntegration, error) {
+	row := q.db.QueryRow(ctx, getProjectIntegrationByRepository, arg.Provider, arg.RepositoryOwner, arg.RepositoryName)
+	var i ProjectIntegration
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Provider,
+		&i.RepositoryOwner,
+		&i.RepositoryName,
+		&i.WebhookSecret,
+		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -946,6 +1115,41 @@ func (q *Queries) Register(ctx context.Context, arg RegisterParams) (User, error
 	return i, err
 }
 
+const updateIntegrationTaskStatus = `-- name: UpdateIntegrationTaskStatus :one
+UPDATE integration_tasks
+SET status = $3
+WHERE external_id = $1
+  AND project_id = $2 RETURNING id, provider, resource_type, external_id, repository_name, issue_number, title, description, status, assignee_id, payload, created_at, updated_at, project_id
+`
+
+type UpdateIntegrationTaskStatusParams struct {
+	ExternalID string      `json:"external_id"`
+	ProjectID  pgtype.UUID `json:"project_id"`
+	Status     string      `json:"status"`
+}
+
+func (q *Queries) UpdateIntegrationTaskStatus(ctx context.Context, arg UpdateIntegrationTaskStatusParams) (IntegrationTask, error) {
+	row := q.db.QueryRow(ctx, updateIntegrationTaskStatus, arg.ExternalID, arg.ProjectID, arg.Status)
+	var i IntegrationTask
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.ResourceType,
+		&i.ExternalID,
+		&i.RepositoryName,
+		&i.IssueNumber,
+		&i.Title,
+		&i.Description,
+		&i.Status,
+		&i.AssigneeID,
+		&i.Payload,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ProjectID,
+	)
+	return i, err
+}
+
 const updateProject = `-- name: UpdateProject :one
 UPDATE projects
 SET name        = $2,
@@ -968,6 +1172,35 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (P
 		&i.Name,
 		&i.Description,
 		&i.WorkspaceID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateProjectIntegrationWebhookSecret = `-- name: UpdateProjectIntegrationWebhookSecret :one
+UPDATE project_integrations
+SET webhook_secret = $2,
+    updated_at     = now()
+WHERE id = $1 RETURNING id, project_id, provider, repository_owner, repository_name, webhook_secret, is_active, created_at, updated_at
+`
+
+type UpdateProjectIntegrationWebhookSecretParams struct {
+	ID            pgtype.UUID `json:"id"`
+	WebhookSecret string      `json:"webhook_secret"`
+}
+
+func (q *Queries) UpdateProjectIntegrationWebhookSecret(ctx context.Context, arg UpdateProjectIntegrationWebhookSecretParams) (ProjectIntegration, error) {
+	row := q.db.QueryRow(ctx, updateProjectIntegrationWebhookSecret, arg.ID, arg.WebhookSecret)
+	var i ProjectIntegration
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Provider,
+		&i.RepositoryOwner,
+		&i.RepositoryName,
+		&i.WebhookSecret,
+		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
