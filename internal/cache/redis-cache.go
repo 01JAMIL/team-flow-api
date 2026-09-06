@@ -48,3 +48,23 @@ func (r *RedisCache) Get(ctx context.Context, key string, dest interface{}) erro
 func (r *RedisCache) Delete(ctx context.Context, key string) error {
 	return r.client.Del(ctx, key).Err()
 }
+
+func (r *RedisCache) SetBytes(ctx context.Context, key string, data []byte) error {
+	return r.client.Set(ctx, key, data, r.expires).Err()
+}
+
+func (r *RedisCache) GetBytes(ctx context.Context, key string) ([]byte, error) {
+	return r.client.Get(ctx, key).Bytes()
+}
+
+func (r *RedisCache) Increment(ctx context.Context, key string) (int64, error) {
+	return r.client.Incr(ctx, key).Result()
+}
+
+func (r *RedisCache) GetInt(ctx context.Context, key string) (int64, error) {
+	value, err := r.client.Get(ctx, key).Int64()
+	if err == redis.Nil {
+		return 0, nil
+	}
+	return value, err
+}
