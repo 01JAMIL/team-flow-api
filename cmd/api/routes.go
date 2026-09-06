@@ -3,6 +3,7 @@ package main
 import (
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	"gin-api-1/internal/auth"
+	"gin-api-1/internal/cache"
 	"gin-api-1/internal/email"
 	"gin-api-1/internal/integrations"
 	"gin-api-1/internal/messages"
@@ -67,6 +68,7 @@ func (app *application) routes() http.Handler {
 
 	authGroup := v1.Group("/")
 	authGroup.Use(auth.AuthenticationMiddleware(authService))
+	authGroup.Use(cache.ResponseCacheMiddleware(app.cache))
 	{
 		authGroup.GET("/auth/me", authHandler.GetMe)
 

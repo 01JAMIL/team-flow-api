@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"gin-api-1/internal/adapters/postgresql/migrations"
+	"gin-api-1/internal/cache"
 	"gin-api-1/internal/env"
 	"log"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
@@ -17,8 +20,10 @@ type databaseConfig struct {
 }
 
 type config struct {
-	port int
-	db   databaseConfig
+	port      int
+	db        databaseConfig
+	redisHost string
+	redisPort int
 }
 
 type application struct {
@@ -26,6 +31,7 @@ type application struct {
 	db     *pgx.Conn
 	resend *resend.Client
 	stripe *stripe.Client
+	cache  *cache.RedisCache
 }
 
 func main() {
@@ -41,6 +47,8 @@ func main() {
 		db: databaseConfig{
 			dsn: env.GetFormattedDsn(),
 		},
+		redisHost: env.GetEnvString("REDIS_HOST", "localhost"),
+		redisPort: env.GetEnvInt("REDIS_PORT", 6379),
 	}
 
 	ctx := context.Background()
@@ -61,11 +69,17 @@ func main() {
 	client := resend.NewClient(env.GetEnvString("RESEND_API_KEY", "re_xx"))
 	sc := stripe.NewClient(env.GetEnvString("STRIPE_SECRET_KEY", "stripe_xx"))
 
+	redisAddr := fmt.Sprintf("%s:%d", cfg.redisHost, cfg.redisPort)
+	redisCache := cache.NewRedisCache(redisAddr, 0, 5*time.Minute)
+
+	log.Println("Redis cache initialized successfully")
+
 	app := &application{
 		config: cfg,
 		db:     conn,
 		resend: client,
 		stripe: sc,
+		cache:  redisCache,
 	}
 
 	err := app.serve(app.routes())
