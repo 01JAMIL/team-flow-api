@@ -7,6 +7,7 @@ import (
 	"gin-api-1/internal/email"
 	"gin-api-1/internal/integrations"
 	"gin-api-1/internal/messages"
+	"gin-api-1/internal/middleware"
 	"gin-api-1/internal/payment"
 	"gin-api-1/internal/projects"
 	"gin-api-1/internal/subscriptions"
@@ -21,6 +22,7 @@ import (
 
 func (app *application) routes() http.Handler {
 	r := gin.Default()
+	r.Use(middleware.CORS())
 
 	emailService := email.NewEmailService(app.resend)
 	paymentService := payment.NewStripeService(app.stripe, repo.New(app.db))
