@@ -4,6 +4,7 @@ import (
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
 	"gin-api-1/internal/auth"
 	"gin-api-1/internal/cache"
+	"gin-api-1/internal/dashboard"
 	"gin-api-1/internal/email"
 	"gin-api-1/internal/integrations"
 	"gin-api-1/internal/messages"
@@ -51,6 +52,9 @@ func (app *application) routes() http.Handler {
 	integrationsService := integrations.NewIntegrationsService(repo.New(app.db), app.db)
 	integrationsHandler := integrations.NewIntegrationsHandler(integrationsService)
 
+	dashboardService := dashboard.NewDashboardService(repo.New(app.db))
+	dashboardHandler := dashboard.NewDashboardHandler(dashboardService)
+
 	/* Public routes */
 	v1 := r.Group("/api/v1")
 	{
@@ -73,6 +77,9 @@ func (app *application) routes() http.Handler {
 	authGroup.Use(cache.ResponseCacheMiddleware(app.cache))
 	{
 		authGroup.GET("/auth/me", authHandler.GetMe)
+
+		/* Dashboard routes */
+		authGroup.GET("/dashboard/kpis", dashboardHandler.GetKPIs)
 
 		/* Workspaces routes */
 		authGroup.GET("/workspaces", workspaceHandler.GetUserWorkspaces)
