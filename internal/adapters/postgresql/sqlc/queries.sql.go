@@ -824,6 +824,49 @@ func (q *Queries) GetUserByStripeCustomerID(ctx context.Context, stripeCustomerI
 	return i, err
 }
 
+const getUserKPIs = `-- name: GetUserKPIs :one
+WITH user_workspaces AS (
+    SELECT id
+    FROM workspaces
+    WHERE user_id = $1
+)
+SELECT
+    (SELECT COUNT(*) FROM user_workspaces) AS total_workspaces,
+    (SELECT COUNT(DISTINCT p.id)
+     FROM projects p
+              JOIN tasks t ON t.project_id = p.id
+     WHERE p.workspace_id IN (SELECT id FROM user_workspaces)
+       AND t.status <> 'DONE')             AS active_projects,
+    (SELECT COUNT(*)
+     FROM tasks t
+              JOIN projects p ON p.id = t.project_id
+     WHERE p.workspace_id IN (SELECT id FROM user_workspaces)
+       AND t.status <> 'DONE')             AS open_tasks,
+    (SELECT COUNT(DISTINCT wm.user_id)
+     FROM workspace_members wm
+              JOIN workspaces w ON w.id = wm.workspace_id
+     WHERE w.user_id = $1)                 AS team_members
+`
+
+type GetUserKPIsRow struct {
+	TotalWorkspaces int64 `json:"total_workspaces"`
+	ActiveProjects  int64 `json:"active_projects"`
+	OpenTasks       int64 `json:"open_tasks"`
+	TeamMembers     int64 `json:"team_members"`
+}
+
+func (q *Queries) GetUserKPIs(ctx context.Context, userID pgtype.UUID) (GetUserKPIsRow, error) {
+	row := q.db.QueryRow(ctx, getUserKPIs, userID)
+	var i GetUserKPIsRow
+	err := row.Scan(
+		&i.TotalWorkspaces,
+		&i.ActiveProjects,
+		&i.OpenTasks,
+		&i.TeamMembers,
+	)
+	return i, err
+}
+
 const getUserWorkspaceByID = `-- name: GetUserWorkspaceByID :one
 SELECT id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
 FROM workspaces

@@ -38,6 +38,7 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserById(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserByStripeCustomerID(ctx context.Context, stripeCustomerID pgtype.Text) (User, error)
+	GetUserKPIs(ctx context.Context, userID pgtype.UUID) (GetUserKPIsRow, error)
 	GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspaceByIDParams) (Workspace, error)
 	GetUserWorkspaces(ctx context.Context, arg GetUserWorkspacesParams) ([]GetUserWorkspacesRow, error)
 	GetWorkspaceActiveSubscription(ctx context.Context, workspaceID pgtype.UUID) (Subscription, error)

@@ -297,3 +297,23 @@ UPDATE integration_tasks
 SET status = $3
 WHERE external_id = $1
   AND project_id = $2 RETURNING *;
+
+-- name: GetUserKPIs :one
+WITH user_workspaces AS (SELECT id
+                         FROM workspaces
+                         WHERE user_id = $1)
+SELECT (SELECT COUNT(*) FROM user_workspaces) AS total_workspaces,
+       (SELECT COUNT(DISTINCT p.id)
+        FROM projects p
+                 JOIN tasks t ON t.project_id = p.id
+        WHERE p.workspace_id IN (SELECT id FROM user_workspaces)
+          AND t.status <> 'DONE')             AS active_projects,
+       (SELECT COUNT(*)
+        FROM tasks t
+                 JOIN projects p ON p.id = t.project_id
+        WHERE p.workspace_id IN (SELECT id FROM user_workspaces)
+          AND t.status <> 'DONE')             AS open_tasks,
+       (SELECT COUNT(DISTINCT wm.user_id)
+        FROM workspace_members wm
+                 JOIN workspaces w ON w.id = wm.workspace_id
+        WHERE w.user_id = $1)                 AS team_members;
