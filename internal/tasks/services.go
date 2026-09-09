@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const dateLayout = "2006-01-02"
@@ -23,10 +23,10 @@ type Service interface {
 
 type svc struct {
 	repo *repo.Queries
-	db   *pgx.Conn
+	db   *pgxpool.Pool
 }
 
-func NewTasksService(repo *repo.Queries, db *pgx.Conn) Service {
+func NewTasksService(repo *repo.Queries, db *pgxpool.Pool) Service {
 	return &svc{
 		repo: repo,
 		db:   db,

@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var repositoryPattern = regexp.MustCompile(`^[A-Za-z0-9-_.]+/[A-Za-z0-9-_.]+$`)
@@ -30,11 +31,11 @@ type Service interface {
 
 type svc struct {
 	repo   *repo.Queries
-	db     *pgx.Conn
+	db     *pgxpool.Pool
 	github *gitHubClient
 }
 
-func NewIntegrationsService(repo *repo.Queries, db *pgx.Conn) Service {
+func NewIntegrationsService(repo *repo.Queries, db *pgxpool.Pool) Service {
 	return &svc{
 		repo:   repo,
 		db:     db,
