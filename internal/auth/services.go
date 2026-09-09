@@ -6,8 +6,8 @@ import (
 	codeerror "gin-api-1/internal/codeerror"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Service interface {
@@ -26,10 +26,10 @@ type authRepository interface {
 
 type svc struct {
 	repo authRepository
-	db   *pgx.Conn
+	db   *pgxpool.Pool
 }
 
-func NewAuthService(repo authRepository, db *pgx.Conn) Service {
+func NewAuthService(repo authRepository, db *pgxpool.Pool) Service {
 	return &svc{
 		repo: repo,
 		db:   db,

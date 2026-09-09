@@ -6,8 +6,8 @@ import (
 	"gin-api-1/internal/codeerror"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stripe/stripe-go/v86"
 )
 
@@ -21,11 +21,11 @@ type Service interface {
 
 type svc struct {
 	repo   *repo.Queries
-	db     *pgx.Conn
+	db     *pgxpool.Pool
 	client *stripe.Client
 }
 
-func NewSubscriptionsService(repo *repo.Queries, db *pgx.Conn, client *stripe.Client) Service {
+func NewSubscriptionsService(repo *repo.Queries, db *pgxpool.Pool, client *stripe.Client) Service {
 	return &svc{
 		repo:   repo,
 		db:     db,

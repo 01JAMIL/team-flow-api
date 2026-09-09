@@ -9,7 +9,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/resend/resend-go/v3"
 	"github.com/stripe/stripe-go/v86"
@@ -28,7 +28,7 @@ type config struct {
 
 type application struct {
 	config config
-	db     *pgx.Conn
+	db     *pgxpool.Pool
 	resend *resend.Client
 	stripe *stripe.Client
 	cache  *cache.RedisCache
@@ -53,11 +53,15 @@ func main() {
 
 	ctx := context.Background()
 
-	conn, pgErr := pgx.Connect(ctx, cfg.db.dsn)
-	if pgErr != nil {
-		panic(pgErr)
+	dbpool, poolErr := pgxpool.New(ctx, cfg.db.dsn)
+	if poolErr != nil {
+		panic(poolErr)
 	}
-	defer conn.Close(ctx)
+	defer dbpool.Close()
+
+	if err := dbpool.Ping(ctx); err != nil {
+		panic(err)
+	}
 
 	log.Println("Database connected successfully")
 
@@ -76,7 +80,7 @@ func main() {
 
 	app := &application{
 		config: cfg,
-		db:     conn,
+		db:     dbpool,
 		resend: client,
 		stripe: sc,
 		cache:  redisCache,

@@ -6,8 +6,8 @@ import (
 	codeerror "gin-api-1/internal/codeerror"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Service interface {
@@ -18,10 +18,10 @@ type Service interface {
 
 type svc struct {
 	repo *repo.Queries
-	db   *pgx.Conn
+	db   *pgxpool.Pool
 }
 
-func NewWorkspaceMembersService(repo *repo.Queries, db *pgx.Conn) Service {
+func NewWorkspaceMembersService(repo *repo.Queries, db *pgxpool.Pool) Service {
 	return &svc{
 		repo: repo,
 		db:   db,
