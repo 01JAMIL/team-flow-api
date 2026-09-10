@@ -178,14 +178,14 @@ WHERE (sender_id = $1 AND receiver_id = $2)
 ORDER BY created_at DESC LIMIT $3
 OFFSET $4;
 
--- name: UpdateWorkspaceStripeCustomer :one
-UPDATE workspaces
+-- name: UpdateUserStripeCustomer :one
+UPDATE users
 SET stripe_customer_id = $2
 WHERE id = $1 RETURNING *;
 
 -- name: CreateSubscription :one
 INSERT INTO subscriptions (id,
-                           workspace_id,
+                           user_id,
                            stripe_subscription_id,
                            stripe_price_id,
                            status,
@@ -215,10 +215,9 @@ SET status     = 'INACTIVE',
 WHERE stripe_subscription_id = $1 RETURNING *;
 
 -- name: GetUserByStripeCustomerID :one
-SELECT u.*
-FROM users u
-         JOIN workspaces w ON w.user_id = u.id
-WHERE w.stripe_customer_id = $1 LIMIT 1;
+SELECT *
+FROM users
+WHERE stripe_customer_id = $1 LIMIT 1;
 
 -- name: CountUserWorkspaces :one
 SELECT COUNT(*)
@@ -231,17 +230,16 @@ FROM projects
 WHERE workspace_id = $1;
 
 -- name: GetUserActiveProSubscription :one
-SELECT s.*
-FROM subscriptions s
-         JOIN workspaces w ON w.id = s.workspace_id
-WHERE w.user_id = $1
-  AND s.status = 'ACTIVE'
-  AND s.plan = 'PRO' LIMIT 1;
-
--- name: GetWorkspaceActiveSubscription :one
 SELECT *
 FROM subscriptions
-WHERE workspace_id = $1
+WHERE user_id = $1
+  AND status = 'ACTIVE'
+  AND plan = 'PRO' LIMIT 1;
+
+-- name: GetUserActiveSubscription :one
+SELECT *
+FROM subscriptions
+WHERE user_id = $1
   AND status = 'ACTIVE' LIMIT 1;
 
 -- name: CreateIntegrationTask :one

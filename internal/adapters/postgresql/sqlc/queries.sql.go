@@ -245,19 +245,19 @@ func (q *Queries) CreateProjectIntegration(ctx context.Context, arg CreateProjec
 
 const createSubscription = `-- name: CreateSubscription :one
 INSERT INTO subscriptions (id,
-                           workspace_id,
+                           user_id,
                            stripe_subscription_id,
                            stripe_price_id,
                            status,
                            plan,
                            current_period_start,
                            current_period_end)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, workspace_id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at, user_id
 `
 
 type CreateSubscriptionParams struct {
 	ID                   pgtype.UUID        `json:"id"`
-	WorkspaceID          pgtype.UUID        `json:"workspace_id"`
+	UserID               pgtype.UUID        `json:"user_id"`
 	StripeSubscriptionID string             `json:"stripe_subscription_id"`
 	StripePriceID        string             `json:"stripe_price_id"`
 	Status               string             `json:"status"`
@@ -269,7 +269,7 @@ type CreateSubscriptionParams struct {
 func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error) {
 	row := q.db.QueryRow(ctx, createSubscription,
 		arg.ID,
-		arg.WorkspaceID,
+		arg.UserID,
 		arg.StripeSubscriptionID,
 		arg.StripePriceID,
 		arg.Status,
@@ -280,7 +280,6 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 	var i Subscription
 	err := row.Scan(
 		&i.ID,
-		&i.WorkspaceID,
 		&i.StripeSubscriptionID,
 		&i.StripePriceID,
 		&i.Status,
@@ -289,6 +288,7 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		&i.CurrentPeriodEnd,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.UserID,
 	)
 	return i, err
 }
@@ -341,7 +341,7 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, e
 
 const createWorkspace = `-- name: CreateWorkspace :one
 INSERT INTO workspaces (id, workspace_name, description, user_id)
-VALUES ($1, $2, $3, $4) RETURNING id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
+VALUES ($1, $2, $3, $4) RETURNING id, workspace_name, description, user_id, created_at, updated_at
 `
 
 type CreateWorkspaceParams struct {
@@ -366,7 +366,6 @@ func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.StripeCustomerID,
 	)
 	return i, err
 }
@@ -375,7 +374,7 @@ const deactivateSubscription = `-- name: DeactivateSubscription :one
 UPDATE subscriptions
 SET status     = 'INACTIVE',
     updated_at = NOW()
-WHERE stripe_subscription_id = $1 RETURNING id, workspace_id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at
+WHERE stripe_subscription_id = $1 RETURNING id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at, user_id
 `
 
 func (q *Queries) DeactivateSubscription(ctx context.Context, stripeSubscriptionID string) (Subscription, error) {
@@ -383,7 +382,6 @@ func (q *Queries) DeactivateSubscription(ctx context.Context, stripeSubscription
 	var i Subscription
 	err := row.Scan(
 		&i.ID,
-		&i.WorkspaceID,
 		&i.StripeSubscriptionID,
 		&i.StripePriceID,
 		&i.Status,
@@ -392,6 +390,7 @@ func (q *Queries) DeactivateSubscription(ctx context.Context, stripeSubscription
 		&i.CurrentPeriodEnd,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.UserID,
 	)
 	return i, err
 }
@@ -685,7 +684,7 @@ func (q *Queries) GetProjectTasks(ctx context.Context, arg GetProjectTasksParams
 }
 
 const getSubscriptionByStripeSubscription = `-- name: GetSubscriptionByStripeSubscription :one
-SELECT id, workspace_id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at
+SELECT id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at, user_id
 FROM subscriptions
 WHERE stripe_subscription_id = $1
 `
@@ -695,7 +694,6 @@ func (q *Queries) GetSubscriptionByStripeSubscription(ctx context.Context, strip
 	var i Subscription
 	err := row.Scan(
 		&i.ID,
-		&i.WorkspaceID,
 		&i.StripeSubscriptionID,
 		&i.StripePriceID,
 		&i.Status,
@@ -704,6 +702,7 @@ func (q *Queries) GetSubscriptionByStripeSubscription(ctx context.Context, strip
 		&i.CurrentPeriodEnd,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.UserID,
 	)
 	return i, err
 }
@@ -734,12 +733,11 @@ func (q *Queries) GetTaskById(ctx context.Context, id pgtype.UUID) (Task, error)
 }
 
 const getUserActiveProSubscription = `-- name: GetUserActiveProSubscription :one
-SELECT s.id, s.workspace_id, s.stripe_subscription_id, s.stripe_price_id, s.status, s.plan, s.current_period_start, s.current_period_end, s.created_at, s.updated_at
-FROM subscriptions s
-         JOIN workspaces w ON w.id = s.workspace_id
-WHERE w.user_id = $1
-  AND s.status = 'ACTIVE'
-  AND s.plan = 'PRO' LIMIT 1
+SELECT id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at, user_id
+FROM subscriptions
+WHERE user_id = $1
+  AND status = 'ACTIVE'
+  AND plan = 'PRO' LIMIT 1
 `
 
 func (q *Queries) GetUserActiveProSubscription(ctx context.Context, userID pgtype.UUID) (Subscription, error) {
@@ -747,7 +745,6 @@ func (q *Queries) GetUserActiveProSubscription(ctx context.Context, userID pgtyp
 	var i Subscription
 	err := row.Scan(
 		&i.ID,
-		&i.WorkspaceID,
 		&i.StripeSubscriptionID,
 		&i.StripePriceID,
 		&i.Status,
@@ -756,12 +753,38 @@ func (q *Queries) GetUserActiveProSubscription(ctx context.Context, userID pgtyp
 		&i.CurrentPeriodEnd,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.UserID,
+	)
+	return i, err
+}
+
+const getUserActiveSubscription = `-- name: GetUserActiveSubscription :one
+SELECT id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at, user_id
+FROM subscriptions
+WHERE user_id = $1
+  AND status = 'ACTIVE' LIMIT 1
+`
+
+func (q *Queries) GetUserActiveSubscription(ctx context.Context, userID pgtype.UUID) (Subscription, error) {
+	row := q.db.QueryRow(ctx, getUserActiveSubscription, userID)
+	var i Subscription
+	err := row.Scan(
+		&i.ID,
+		&i.StripeSubscriptionID,
+		&i.StripePriceID,
+		&i.Status,
+		&i.Plan,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UserID,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, first_name, last_name, email, password, created_at, updated_at
+SELECT id, first_name, last_name, email, password, created_at, updated_at, stripe_customer_id
 FROM users
 WHERE email = $1
 `
@@ -777,12 +800,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Password,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StripeCustomerID,
 	)
 	return i, err
 }
 
 const getUserById = `-- name: GetUserById :one
-SELECT id, first_name, last_name, email, password, created_at, updated_at
+SELECT id, first_name, last_name, email, password, created_at, updated_at, stripe_customer_id
 FROM users
 WHERE id = $1
 `
@@ -798,15 +822,15 @@ func (q *Queries) GetUserById(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.Password,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StripeCustomerID,
 	)
 	return i, err
 }
 
 const getUserByStripeCustomerID = `-- name: GetUserByStripeCustomerID :one
-SELECT u.id, u.first_name, u.last_name, u.email, u.password, u.created_at, u.updated_at
-FROM users u
-         JOIN workspaces w ON w.user_id = u.id
-WHERE w.stripe_customer_id = $1 LIMIT 1
+SELECT id, first_name, last_name, email, password, created_at, updated_at, stripe_customer_id
+FROM users
+WHERE stripe_customer_id = $1 LIMIT 1
 `
 
 func (q *Queries) GetUserByStripeCustomerID(ctx context.Context, stripeCustomerID pgtype.Text) (User, error) {
@@ -820,32 +844,30 @@ func (q *Queries) GetUserByStripeCustomerID(ctx context.Context, stripeCustomerI
 		&i.Password,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StripeCustomerID,
 	)
 	return i, err
 }
 
 const getUserKPIs = `-- name: GetUserKPIs :one
-WITH user_workspaces AS (
-    SELECT id
-    FROM workspaces
-    WHERE user_id = $1
-)
-SELECT
-    (SELECT COUNT(*) FROM user_workspaces) AS total_workspaces,
-    (SELECT COUNT(DISTINCT p.id)
-     FROM projects p
-              JOIN tasks t ON t.project_id = p.id
-     WHERE p.workspace_id IN (SELECT id FROM user_workspaces)
-       AND t.status <> 'DONE')             AS active_projects,
-    (SELECT COUNT(*)
-     FROM tasks t
-              JOIN projects p ON p.id = t.project_id
-     WHERE p.workspace_id IN (SELECT id FROM user_workspaces)
-       AND t.status <> 'DONE')             AS open_tasks,
-    (SELECT COUNT(DISTINCT wm.user_id)
-     FROM workspace_members wm
-              JOIN workspaces w ON w.id = wm.workspace_id
-     WHERE w.user_id = $1)                 AS team_members
+WITH user_workspaces AS (SELECT id
+                         FROM workspaces
+                         WHERE user_id = $1)
+SELECT (SELECT COUNT(*) FROM user_workspaces) AS total_workspaces,
+       (SELECT COUNT(DISTINCT p.id)
+        FROM projects p
+                 JOIN tasks t ON t.project_id = p.id
+        WHERE p.workspace_id IN (SELECT id FROM user_workspaces)
+          AND t.status <> 'DONE')             AS active_projects,
+       (SELECT COUNT(*)
+        FROM tasks t
+                 JOIN projects p ON p.id = t.project_id
+        WHERE p.workspace_id IN (SELECT id FROM user_workspaces)
+          AND t.status <> 'DONE')             AS open_tasks,
+       (SELECT COUNT(DISTINCT wm.user_id)
+        FROM workspace_members wm
+                 JOIN workspaces w ON w.id = wm.workspace_id
+        WHERE w.user_id = $1)                 AS team_members
 `
 
 type GetUserKPIsRow struct {
@@ -868,7 +890,7 @@ func (q *Queries) GetUserKPIs(ctx context.Context, userID pgtype.UUID) (GetUserK
 }
 
 const getUserWorkspaceByID = `-- name: GetUserWorkspaceByID :one
-SELECT id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
+SELECT id, workspace_name, description, user_id, created_at, updated_at
 FROM workspaces
 WHERE user_id = $1
   AND id = $2
@@ -889,7 +911,6 @@ func (q *Queries) GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspace
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.StripeCustomerID,
 	)
 	return i, err
 }
@@ -951,33 +972,8 @@ func (q *Queries) GetUserWorkspaces(ctx context.Context, arg GetUserWorkspacesPa
 	return items, nil
 }
 
-const getWorkspaceActiveSubscription = `-- name: GetWorkspaceActiveSubscription :one
-SELECT id, workspace_id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at
-FROM subscriptions
-WHERE workspace_id = $1
-  AND status = 'ACTIVE' LIMIT 1
-`
-
-func (q *Queries) GetWorkspaceActiveSubscription(ctx context.Context, workspaceID pgtype.UUID) (Subscription, error) {
-	row := q.db.QueryRow(ctx, getWorkspaceActiveSubscription, workspaceID)
-	var i Subscription
-	err := row.Scan(
-		&i.ID,
-		&i.WorkspaceID,
-		&i.StripeSubscriptionID,
-		&i.StripePriceID,
-		&i.Status,
-		&i.Plan,
-		&i.CurrentPeriodStart,
-		&i.CurrentPeriodEnd,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const getWorkspaceByID = `-- name: GetWorkspaceByID :one
-SELECT id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
+SELECT id, workspace_name, description, user_id, created_at, updated_at
 FROM workspaces
 WHERE id = $1
 `
@@ -992,7 +988,6 @@ func (q *Queries) GetWorkspaceByID(ctx context.Context, id pgtype.UUID) (Workspa
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.StripeCustomerID,
 	)
 	return i, err
 }
@@ -1126,7 +1121,7 @@ func (q *Queries) GetWorkspaceProjects(ctx context.Context, arg GetWorkspaceProj
 
 const register = `-- name: Register :one
 INSERT INTO users (id, first_name, last_name, email, password)
-VALUES ($1, $2, $3, $4, $5) RETURNING id, first_name, last_name, email, password, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5) RETURNING id, first_name, last_name, email, password, created_at, updated_at, stripe_customer_id
 `
 
 type RegisterParams struct {
@@ -1154,6 +1149,7 @@ func (q *Queries) Register(ctx context.Context, arg RegisterParams) (User, error
 		&i.Password,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StripeCustomerID,
 	)
 	return i, err
 }
@@ -1257,7 +1253,7 @@ SET stripe_price_id      = $2,
     current_period_start = $4,
     current_period_end   = $5,
     updated_at           = NOW()
-WHERE stripe_subscription_id = $1 RETURNING id, workspace_id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at
+WHERE stripe_subscription_id = $1 RETURNING id, stripe_subscription_id, stripe_price_id, status, plan, current_period_start, current_period_end, created_at, updated_at, user_id
 `
 
 type UpdateSubscriptionParams struct {
@@ -1279,7 +1275,6 @@ func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscription
 	var i Subscription
 	err := row.Scan(
 		&i.ID,
-		&i.WorkspaceID,
 		&i.StripeSubscriptionID,
 		&i.StripePriceID,
 		&i.Status,
@@ -1288,6 +1283,7 @@ func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscription
 		&i.CurrentPeriodEnd,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.UserID,
 	)
 	return i, err
 }
@@ -1344,13 +1340,40 @@ func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, e
 	return i, err
 }
 
+const updateUserStripeCustomer = `-- name: UpdateUserStripeCustomer :one
+UPDATE users
+SET stripe_customer_id = $2
+WHERE id = $1 RETURNING id, first_name, last_name, email, password, created_at, updated_at, stripe_customer_id
+`
+
+type UpdateUserStripeCustomerParams struct {
+	ID               pgtype.UUID `json:"id"`
+	StripeCustomerID pgtype.Text `json:"stripe_customer_id"`
+}
+
+func (q *Queries) UpdateUserStripeCustomer(ctx context.Context, arg UpdateUserStripeCustomerParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserStripeCustomer, arg.ID, arg.StripeCustomerID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.Email,
+		&i.Password,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.StripeCustomerID,
+	)
+	return i, err
+}
+
 const updateWorkspace = `-- name: UpdateWorkspace :one
 UPDATE workspaces
 SET workspace_name = $3,
     description    = $4,
     updated_at     = now()
 WHERE id = $1
-  AND user_id = $2 RETURNING id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
+  AND user_id = $2 RETURNING id, workspace_name, description, user_id, created_at, updated_at
 `
 
 type UpdateWorkspaceParams struct {
@@ -1375,33 +1398,6 @@ func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.StripeCustomerID,
-	)
-	return i, err
-}
-
-const updateWorkspaceStripeCustomer = `-- name: UpdateWorkspaceStripeCustomer :one
-UPDATE workspaces
-SET stripe_customer_id = $2
-WHERE id = $1 RETURNING id, workspace_name, description, user_id, created_at, updated_at, stripe_customer_id
-`
-
-type UpdateWorkspaceStripeCustomerParams struct {
-	ID               pgtype.UUID `json:"id"`
-	StripeCustomerID pgtype.Text `json:"stripe_customer_id"`
-}
-
-func (q *Queries) UpdateWorkspaceStripeCustomer(ctx context.Context, arg UpdateWorkspaceStripeCustomerParams) (Workspace, error) {
-	row := q.db.QueryRow(ctx, updateWorkspaceStripeCustomer, arg.ID, arg.StripeCustomerID)
-	var i Workspace
-	err := row.Scan(
-		&i.ID,
-		&i.WorkspaceName,
-		&i.Description,
-		&i.UserID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.StripeCustomerID,
 	)
 	return i, err
 }

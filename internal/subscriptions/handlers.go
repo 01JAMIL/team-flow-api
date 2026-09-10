@@ -18,11 +18,10 @@ func NewSubscriptionsHandler(service Service) *handler {
 	}
 }
 
-func (h *handler) GetWorkspaceSubscription(c *gin.Context) {
-	workspaceID := c.Param("id")
+func (h *handler) GetUserSubscription(c *gin.Context) {
 	loggedUser := c.MustGet("user").(auth.UserResponse)
 
-	subscription, err := h.service.GetWorkspaceSubscription(c, workspaceID, loggedUser.ID)
+	subscription, err := h.service.GetUserSubscription(c, loggedUser.ID)
 	if err != nil {
 		codeerror.HandleError(c, err)
 		return

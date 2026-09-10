@@ -111,8 +111,8 @@ func readNamespace(c *gin.Context) (string, bool) {
 		return "workspaces:" + currentUserID(c), true
 	case "/api/v1/workspaces/:id":
 		return "workspace:" + c.Param("id"), true
-	case "/api/v1/workspaces/:id/subscription":
-		return "workspace-subscription:" + c.Param("id"), true
+	case "/api/v1/subscription":
+		return "user-subscription:" + currentUserID(c), true
 	case "/api/v1/workspaces/:id/members":
 		return "workspace-members:" + c.Param("id"), true
 	case "/api/v1/workspaces/:id/projects":
@@ -138,8 +138,8 @@ func writeNamespaces(c *gin.Context) []string {
 		return []string{"workspaces:" + currentUserID(c)}
 	case "/api/v1/workspaces/:id":
 		return []string{"workspaces:" + currentUserID(c), "workspace:" + c.Param("id")}
-	case "/api/v1/workspaces/:id/checkout":
-		return []string{"workspace-subscription:" + c.Param("id")}
+	case "/api/v1/checkout":
+		return []string{"user-subscription:" + currentUserID(c)}
 	case "/api/v1/workspaces/:id/members":
 		return []string{"workspace-members:" + c.Param("id")}
 	case "/api/v1/workspaces/:id/members/:userId":
