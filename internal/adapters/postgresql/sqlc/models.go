@@ -56,7 +56,6 @@ type ProjectIntegration struct {
 
 type Subscription struct {
 	ID                   pgtype.UUID        `json:"id"`
-	WorkspaceID          pgtype.UUID        `json:"workspace_id"`
 	StripeSubscriptionID string             `json:"stripe_subscription_id"`
 	StripePriceID        string             `json:"stripe_price_id"`
 	Status               string             `json:"status"`
@@ -65,6 +64,7 @@ type Subscription struct {
 	CurrentPeriodEnd     pgtype.Timestamptz `json:"current_period_end"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	UserID               pgtype.UUID        `json:"user_id"`
 }
 
 type Task struct {
@@ -82,23 +82,23 @@ type Task struct {
 }
 
 type User struct {
-	ID        pgtype.UUID        `json:"id"`
-	FirstName string             `json:"first_name"`
-	LastName  string             `json:"last_name"`
-	Email     string             `json:"email"`
-	Password  string             `json:"password"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
-type Workspace struct {
 	ID               pgtype.UUID        `json:"id"`
-	WorkspaceName    string             `json:"workspace_name"`
-	Description      string             `json:"description"`
-	UserID           pgtype.UUID        `json:"user_id"`
+	FirstName        string             `json:"first_name"`
+	LastName         string             `json:"last_name"`
+	Email            string             `json:"email"`
+	Password         string             `json:"password"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 	StripeCustomerID pgtype.Text        `json:"stripe_customer_id"`
+}
+
+type Workspace struct {
+	ID            pgtype.UUID        `json:"id"`
+	WorkspaceName string             `json:"workspace_name"`
+	Description   string             `json:"description"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type WorkspaceMember struct {

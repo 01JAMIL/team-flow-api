@@ -21,7 +21,7 @@ type Service interface {
 	GetUserWorkspaces(ctx context.Context, userID pgtype.UUID, page, pageSize int) (getUserWorkspacesResponse, error)
 	UpdateWorkspace(ctx context.Context, payload updateWorkspacePayload) (repo.Workspace, error)
 	DeleteWorkspace(ctx context.Context, arg repo.DeleteWorkspaceParams) error
-	CreateCheckoutSession(ctx context.Context, workspaceID uuid.UUID, userID string) (*stripe.CheckoutSession, error)
+	CreateCheckoutSession(ctx context.Context, userID string) (*stripe.CheckoutSession, error)
 }
 
 type svc struct {
@@ -227,23 +227,20 @@ func (s *svc) DeleteWorkspace(ctx context.Context, arg repo.DeleteWorkspaceParam
 	return nil
 }
 
-func (s *svc) CreateCheckoutSession(ctx context.Context, workspaceID uuid.UUID, userID string) (*stripe.CheckoutSession, error) {
+func (s *svc) CreateCheckoutSession(ctx context.Context, userID string) (*stripe.CheckoutSession, error) {
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
 		return nil, codeerror.New(codeerror.InvalidUUID, "User ID invalid")
 	}
 
-	workspace, err := s.repo.GetUserWorkspaceByID(ctx, repo.GetUserWorkspaceByIDParams{
-		ID:     pgtype.UUID{Bytes: workspaceID, Valid: true},
-		UserID: pgtype.UUID{Bytes: userUUID, Valid: true},
-	})
+	user, err := s.repo.GetUserById(ctx, pgtype.UUID{Bytes: userUUID, Valid: true})
 	if err != nil {
-		return nil, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+		return nil, codeerror.New(codeerror.UserNotFound, "User not found")
 	}
 
-	if !workspace.StripeCustomerID.Valid || workspace.StripeCustomerID.String == "" {
+	if !user.StripeCustomerID.Valid || user.StripeCustomerID.String == "" {
 		customer, err := s.stripe.CreateStripeCustomer(
-			workspace.WorkspaceName,
+			user.FirstName + " " + user.LastName,
 		)
 
 		if err != nil {
@@ -254,10 +251,10 @@ func (s *svc) CreateCheckoutSession(ctx context.Context, workspaceID uuid.UUID, 
 			)
 		}
 
-		workspace, err = s.repo.UpdateWorkspaceStripeCustomer(
+		user, err = s.repo.UpdateUserStripeCustomer(
 			ctx,
-			repo.UpdateWorkspaceStripeCustomerParams{
-				ID: workspace.ID,
+			repo.UpdateUserStripeCustomerParams{
+				ID: user.ID,
 				StripeCustomerID: pgtype.Text{
 					String: customer.ID,
 					Valid:  true,
@@ -275,8 +272,8 @@ func (s *svc) CreateCheckoutSession(ctx context.Context, workspaceID uuid.UUID, 
 	}
 
 	session, err := s.stripe.CreateCheckoutSession(
-		workspaceID.String(),
-		workspace.StripeCustomerID.String,
+		userID,
+		user.StripeCustomerID.String,
 		env.GetEnvString("STRIPE_PRO_PRICE_ID", "price_xx"),
 	)
 

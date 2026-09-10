@@ -3,7 +3,7 @@ package subscriptions
 import "github.com/jackc/pgx/v5/pgtype"
 
 type CreateSubscriptionPayload struct {
-	WorkspaceID          pgtype.UUID        `json:"workspaceId" binding:"required"`
+	UserID               pgtype.UUID        `json:"userId" binding:"required"`
 	StripeSubscriptionID string             `json:"stripeSubscriptionId" binding:"required"`
 	StripePriceID        string             `json:"stripePriceId" binding:"required"`
 	Status               string             `json:"status" binding:"required,oneof=ACTIVE INACTIVE"`
@@ -22,7 +22,7 @@ type UpdateSubscriptionPayload struct {
 
 type subscriptionResponse struct {
 	ID                   string             `json:"id"`
-	WorkspaceID          string             `json:"workspaceId"`
+	UserID               string             `json:"userId"`
 	StripeSubscriptionID string             `json:"stripeSubscriptionId"`
 	StripePriceID        string             `json:"stripePriceId"`
 	Status               string             `json:"status"`

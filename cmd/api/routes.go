@@ -87,10 +87,10 @@ func (app *application) routes() http.Handler {
 		authGroup.POST("/workspaces", workspaceHandler.CreateWorkspace)
 		authGroup.PATCH("/workspaces/:id", workspaceHandler.UpdateWorkspace)
 		authGroup.DELETE("/workspaces/:id", workspaceHandler.DeleteWorkspace)
-		authGroup.POST("/workspaces/:id/checkout", workspaceHandler.CreateCheckoutSession)
+		authGroup.POST("/checkout", workspaceHandler.CreateCheckoutSession)
 
 		/* Subscriptions routes */
-		authGroup.GET("/workspaces/:id/subscription", subscriptionsHandler.GetWorkspaceSubscription)
+		authGroup.GET("/subscription", subscriptionsHandler.GetUserSubscription)
 
 		/* Workspace Members routes */
 		authGroup.GET("/workspaces/:id/members", workspaceMembersHandler.GetWorkspaceMembers)

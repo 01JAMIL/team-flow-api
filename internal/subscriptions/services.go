@@ -16,7 +16,7 @@ type Service interface {
 	UpdateSubscription(ctx context.Context, payload UpdateSubscriptionPayload) (repo.Subscription, error)
 	GetSubscription(subscriptionID string) (*stripe.Subscription, error)
 	DeactivateSubscription(ctx context.Context, stripeSubscriptionID string) (repo.Subscription, error)
-	GetWorkspaceSubscription(ctx context.Context, workspaceID, userID string) (subscriptionResponse, error)
+	GetUserSubscription(ctx context.Context, userID string) (subscriptionResponse, error)
 }
 
 type svc struct {
@@ -37,14 +37,14 @@ func (s *svc) CreateSubscription(ctx context.Context, payload CreateSubscription
 
 	pk := uuid.New()
 
-	workspaceUUID, err := uuid.Parse(payload.WorkspaceID.String())
+	userUUID, err := uuid.Parse(payload.UserID.String())
 	if err != nil {
-		return repo.Subscription{}, codeerror.New(codeerror.InvalidUUID, "Workspace ID is not a valid UUID")
+		return repo.Subscription{}, codeerror.New(codeerror.InvalidUUID, "User ID is not a valid UUID")
 	}
 
 	return s.repo.CreateSubscription(ctx, repo.CreateSubscriptionParams{
 		ID:                   pgtype.UUID{Bytes: pk, Valid: true},
-		WorkspaceID:          pgtype.UUID{Bytes: workspaceUUID, Valid: true},
+		UserID:               pgtype.UUID{Bytes: userUUID, Valid: true},
 		StripeSubscriptionID: payload.StripeSubscriptionID,
 		StripePriceID:        payload.StripePriceID,
 		Status:               payload.Status,
@@ -94,33 +94,20 @@ func (s *svc) GetSubscription(
 	)
 }
 
-func (s *svc) GetWorkspaceSubscription(ctx context.Context, workspaceID, userID string) (subscriptionResponse, error) {
-	workspaceUUID, err := uuid.Parse(workspaceID)
-	if err != nil {
-		return subscriptionResponse{}, codeerror.New(codeerror.InvalidUUID, "Workspace ID is not a valid UUID")
-	}
-
+func (s *svc) GetUserSubscription(ctx context.Context, userID string) (subscriptionResponse, error) {
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
 		return subscriptionResponse{}, codeerror.New(codeerror.InvalidUUID, "User ID is not a valid UUID")
 	}
 
-	_, err = s.repo.GetUserWorkspaceByID(ctx, repo.GetUserWorkspaceByIDParams{
-		ID:     pgtype.UUID{Bytes: workspaceUUID, Valid: true},
-		UserID: pgtype.UUID{Bytes: userUUID, Valid: true},
-	})
-	if err != nil {
-		return subscriptionResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
-	}
-
-	subscription, err := s.repo.GetWorkspaceActiveSubscription(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
+	subscription, err := s.repo.GetUserActiveSubscription(ctx, pgtype.UUID{Bytes: userUUID, Valid: true})
 	if err != nil {
 		return subscriptionResponse{}, codeerror.New(codeerror.SubscriptionNotFound, "Subscription not found")
 	}
 
 	return subscriptionResponse{
 		ID:                   subscription.ID.String(),
-		WorkspaceID:          subscription.WorkspaceID.String(),
+		UserID:               subscription.UserID.String(),
 		StripeSubscriptionID: subscription.StripeSubscriptionID,
 		StripePriceID:        subscription.StripePriceID,
 		Status:               subscription.Status,
