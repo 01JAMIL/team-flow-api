@@ -169,18 +169,10 @@ func (h *handler) DeleteWorkspace(c *gin.Context) {
 }
 
 func (h *handler) CreateCheckoutSession(c *gin.Context) {
-	workspaceID := c.Param("id")
 	loggedUser := c.MustGet("user").(auth.UserResponse)
-
-	uuidID, err := uuid.Parse(workspaceID)
-	if err != nil {
-		codeerror.HandleError(c, codeerror.New(codeerror.InvalidUUID, "Workspace ID is invalid"))
-		return
-	}
 
 	session, err := h.service.CreateCheckoutSession(
 		c,
-		uuidID,
 		loggedUser.ID,
 	)
 	if err != nil {

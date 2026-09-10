@@ -66,8 +66,8 @@ func (h *handler) HandleWebhook(c *gin.Context) {
 			return
 		}
 
-		workspaceID := checkoutSession.Metadata["workspace_id"]
-		workspaceUUID, err := uuid.Parse(workspaceID)
+		userID := checkoutSession.Metadata["user_id"]
+		userUUID, err := uuid.Parse(userID)
 
 		if err != nil {
 			c.Status(http.StatusBadRequest)
@@ -90,7 +90,7 @@ func (h *handler) HandleWebhook(c *gin.Context) {
 		periodStart := time.Now().UTC()
 		periodEnd := periodStart.AddDate(0, 1, 0)
 		_, err = h.subscriptionsService.CreateSubscription(c, subscriptions.CreateSubscriptionPayload{
-			WorkspaceID:          pgtype.UUID{Bytes: workspaceUUID, Valid: true},
+			UserID:               pgtype.UUID{Bytes: userUUID, Valid: true},
 			StripeSubscriptionID: subscriptionID,
 			StripePriceID:        priceID,
 			Status:               "ACTIVE",

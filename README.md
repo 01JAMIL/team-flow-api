@@ -44,11 +44,12 @@ It covers the full backend lifecycle: authentication, workspaces, workspace memb
   - GitHub **issue** webhooks are parsed into `integration_tasks`: an issue `opened` creates a task (status `open`), and `closed` updates it to status `closed`.
 
 - **Billing & Subscriptions (Stripe)**
-  - Checkout session creation per workspace (`POST /workspaces/:id/checkout`).
-  - Lazy **Stripe Customer** creation, stored on the workspace.
+  - Checkout session creation for the logged-in user (`POST /checkout`).
+  - Lazy **Stripe Customer** creation, stored on the user.
   - Stripe **webhooks**: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`.
   - Subscription plans: `PRO`, `BUSINESS`, `ENTERPRISE`; statuses `ACTIVE` / `INACTIVE`.
-  - `GET /workspaces/:id/subscription` returns the workspace's active subscription.
+  - Subscriptions are owned by the **user** and apply across the whole account.
+  - `GET /subscription` returns the logged-in user's active subscription.
   - Payment-failure notifications via Resend email.
 
 - **Consistent API design**
@@ -278,7 +279,7 @@ Response `200` has the same `{ "message", "user": { "user", "token" } }` shape.
 | `POST` | `/workspaces` | Create a workspace (creator becomes ADMIN member) |
 | `PATCH` | `/workspaces/:id` | Update workspace name/description |
 | `DELETE` | `/workspaces/:id` | Delete a workspace |
-| `POST` | `/workspaces/:id/checkout` | Create a Stripe checkout session for this workspace |
+| `POST` | `/checkout` | Create a Stripe checkout session for the logged-in user |
 
 #### Create — `POST /workspaces`
 
@@ -293,7 +294,7 @@ Response `201`:
   "message": "Workspace created successfully",
   "workspace": {
     "id": "d949ce46-...", "workspace_name": "SupaGo", "description": "Go backend team",
-    "user_id": "...", "created_at": "...", "updated_at": null, "stripe_customer_id": null
+    "user_id": "...", "created_at": "...", "updated_at": null
   }
 }
 ```
@@ -487,17 +488,19 @@ Response `200`:
 
 ### Subscriptions (Billing)
 
+Subscriptions belong to the **logged-in user** and their PRO status applies across the whole account.
+
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/workspaces/:id/subscription` | Get the workspace's active subscription |
-| `POST` | `/workspaces/:id/checkout` | Start a Stripe checkout for a PRO subscription |
+| `GET` | `/subscription` | Get the logged-in user's active subscription |
+| `POST` | `/checkout` | Start a Stripe checkout for a PRO subscription |
 
-#### Get subscription — `GET /workspaces/:id/subscription`
+#### Get subscription — `GET /subscription`
 
 ```json
 {
   "subscription": {
-    "id": "...", "workspaceId": "...", "stripeSubscriptionId": "sub_xxx", "stripePriceId": "price_xxx",
+    "id": "...", "userId": "...", "stripeSubscriptionId": "sub_xxx", "stripePriceId": "price_xxx",
     "status": "ACTIVE", "plan": "PRO",
     "currentPeriodStart": "2026-08-13T00:00:00Z", "currentPeriodEnd": "2026-09-13T00:00:00Z",
     "createdAt": "...", "updatedAt": "..."
@@ -505,7 +508,7 @@ Response `200`:
 }
 ```
 
-> Returns `WORKSPACE_NOT_FOUND` if the workspace doesn't belong to the user, or `SUBSCRIPTION_NOT_FOUND` if no active subscription exists.
+> Returns `SUBSCRIPTION_NOT_FOUND` if the user has no active subscription. The frontend should treat a `404` here as "free plan", not as an error.
 
 ---
 
@@ -565,18 +568,18 @@ Connect to `GET /api/v1/ws` (authenticated) and send a JSON message:
 
 ## Stripe Billing Flow
 
-1. **Checkout** — `POST /workspaces/:id/checkout`:
-   - If the workspace has no Stripe customer yet, a customer is created and saved via `UpdateWorkspaceStripeCustomer`.
+1. **Checkout** — `POST /checkout`:
+   - If the logged-in user has no Stripe customer yet, a customer is created and saved via `UpdateUserStripeCustomer`.
    - Returns `{ "url": "<checkout_session_url>" }` for the PRO price (`STRIPE_PRO_PRICE_ID`).
-   - The checkout session carries `workspace_id` in its metadata.
+   - The checkout session carries `user_id` in its metadata.
 
-2. **Webhook: `checkout.session.completed`** — reads `workspace_id` metadata, retrieves the Stripe subscription, and inserts a `subscriptions` row (`status=ACTIVE`, `plan=PRO`, current period = now → +1 month).
+2. **Webhook: `checkout.session.completed`** — reads `user_id` metadata, retrieves the Stripe subscription, and inserts a `subscriptions` row (`status=ACTIVE`, `plan=PRO`, current period = now → +1 month), owned by that user.
 
 3. **Webhook: `customer.subscription.updated`** — updates the subscription's price/status/period.
 
 4. **Webhook: `customer.subscription.deleted`** — sets the subscription `status=INACTIVE`.
 
-5. **Webhook: `invoice.payment_failed`** — looks up the user by the customer's Stripe ID (`GetUserByStripeCustomerID`) and sends a Resend "Payment Failed" email.
+5. **Webhook: `invoice.payment_failed`** — looks up the user by their Stripe customer ID (`GetUserByStripeCustomerID`) and sends a Resend "Payment Failed" email.
 
 Webhook payloads are verified against `STRIPE_WEBHOOK_SECRET` with `webhook.ConstructEventWithOptions`.
 
@@ -598,11 +601,11 @@ Outgoing calls to `api.github.com` include `User-Agent: gin-api` and (when `GITH
 
 ## Database Schema
 
-Ten tables (migrations `00001`–`00012`), all keyed by **UUID** primary keys:
+Ten tables (migrations `00001`–`00013`), all keyed by **UUID** primary keys:
 
 ```
-users (id, first_name, last_name, email UNIQUE, password, created_at, updated_at)
-workspaces (id, workspace_name, description, user_id FK→users, created_at, updated_at, stripe_customer_id)
+users (id, first_name, last_name, email UNIQUE, password, created_at, updated_at, stripe_customer_id)
+workspaces (id, workspace_name, description, user_id FK→users, created_at, updated_at)
 workspace_members (id, user_id FK→users, workspace_id FK→workspaces, user_role CHECK IN ('ADMIN','MEMBER'), created_at)
 projects (id, name, description, workspace_id FK→workspaces, created_at, updated_at)
 tasks (id, name, description, start_date, end_date,
@@ -610,7 +613,7 @@ tasks (id, name, description, start_date, end_date,
        priority CHECK IN ('LOW','MEDIUM','HIGH','URGENT'),
        project_id FK→projects, assignee_id FK→users, created_at, updated_at)
 messages (id, sender_id FK→users, receiver_id FK→users, content, created_at)
-subscriptions (id, workspace_id FK→workspaces, stripe_subscription_id UNIQUE, stripe_price_id,
+subscriptions (id, user_id FK→users, stripe_subscription_id UNIQUE, stripe_price_id,
                status CHECK IN ('ACTIVE','INACTIVE'), plan CHECK IN ('PRO','BUSINESS','ENTERPRISE'),
                current_period_start, current_period_end, created_at, updated_at)
 project_integrations (id, project_id FK→projects ON DELETE CASCADE, provider CHECK IN ('github','gitlab','jira'),
@@ -623,7 +626,7 @@ integration_tasks (id, project_id FK→projects ON DELETE CASCADE, provider CHEC
                    payload JSONB, created_at, updated_at)
 ```
 
-Migrations `00009`/`00010`/`00012` add the integration tables; `00011` indexes `project_integrations` on `(provider, repository_owner, repository_name)` for fast webhook lookup.
+Migrations `00009`/`00010`/`00012` add the integration tables; `00011` indexes `project_integrations` on `(provider, repository_owner, repository_name)` for fast webhook lookup. Migration `00013` moves subscription ownership from `workspaces` to `users` (subscriptions now reference `users.id`, and `stripe_customer_id` moved from `workspaces` to `users`).
 
 ---
 

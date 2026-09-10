@@ -31,13 +31,13 @@ func (s *Svc) CreateStripeCustomer(name string) (*stripe.Customer, error) {
 	)
 }
 
-func (s *Svc) CreateCheckoutSession(workspaceID string, customerID string, priceID string) (*stripe.CheckoutSession, error) {
+func (s *Svc) CreateCheckoutSession(userID string, customerID string, priceID string) (*stripe.CheckoutSession, error) {
 	params := &stripe.CheckoutSessionCreateParams{
 		Customer: stripe.String(customerID),
 		Mode:     stripe.String(string(stripe.CheckoutSessionModeSubscription)),
 
 		Metadata: map[string]string{
-			"workspace_id": workspaceID,
+			"user_id": userID,
 		},
 
 		LineItems: []*stripe.CheckoutSessionCreateLineItemParams{

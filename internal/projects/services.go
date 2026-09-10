@@ -145,9 +145,14 @@ func (s *svc) CreateProject(ctx context.Context, workspaceID string, loggedUserI
 		return projectResponse{}, err
 	}
 
+	userUUID, err := uuid.Parse(loggedUserID)
+	if err != nil {
+		return projectResponse{}, codeerror.New(codeerror.UserNotFound, "User not found")
+	}
+
 	pk := uuid.New()
 
-	subscription, err := s.repo.GetWorkspaceActiveSubscription(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
+	subscription, err := s.repo.GetUserActiveSubscription(ctx, pgtype.UUID{Bytes: userUUID, Valid: true})
 
 	if err == nil && subscription.Plan == "PRO" && subscription.Status == "ACTIVE" {
 		project, err := s.repo.CreateProject(ctx, repo.CreateProjectParams{
@@ -166,7 +171,7 @@ func (s *svc) CreateProject(ctx context.Context, workspaceID string, loggedUserI
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return projectResponse{}, codeerror.New(
 			codeerror.StatusInternalServerError,
-			"Failed to check workspace subscription",
+			"Failed to check user subscription",
 		)
 	}
 
