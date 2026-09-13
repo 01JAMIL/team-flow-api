@@ -53,20 +53,20 @@ type regenerateSecretResponse struct {
 }
 
 type integrationTaskResponse struct {
-	ID             string             `json:"id"`
-	Provider       string             `json:"provider"`
-	ResourceType   string             `json:"resourceType"`
-	ExternalID     string             `json:"externalId"`
-	RepositoryName string             `json:"repositoryName"`
-	IssueNumber    int32              `json:"issueNumber"`
-	Title          string             `json:"title"`
-	Description    pgtype.Text        `json:"description"`
-	Status         string             `json:"status"`
-	AssigneeID     pgtype.UUID        `json:"assigneeId"`
-	Payload        []byte             `json:"payload"`
-	ProjectID      string             `json:"projectId"`
-	CreatedAt      pgtype.Timestamptz `json:"createdAt"`
-	UpdatedAt      pgtype.Timestamptz `json:"updatedAt"`
+	ID             string      `json:"id"`
+	Provider       string      `json:"provider"`
+	ResourceType   string      `json:"resourceType"`
+	ExternalID     string      `json:"externalId"`
+	RepositoryName string      `json:"repositoryName"`
+	IssueNumber    int32       `json:"issueNumber"`
+	Title          string      `json:"title"`
+	Description    pgtype.Text `json:"description"`
+	Status         string      `json:"status"`
+	AssigneeID     pgtype.UUID `json:"assigneeId"`
+	// Payload        []byte             `json:"payload"`
+	ProjectID string             `json:"projectId"`
+	CreatedAt pgtype.Timestamptz `json:"createdAt"`
+	UpdatedAt pgtype.Timestamptz `json:"updatedAt"`
 }
 
 type integrationPaginationResponse struct {

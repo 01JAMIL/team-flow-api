@@ -171,10 +171,10 @@ func (s *svc) GetProjectIntegrationTasks(ctx context.Context, projectID string, 
 			Description:    row.Description,
 			Status:         row.Status,
 			AssigneeID:     row.AssigneeID,
-			Payload:        row.Payload,
-			ProjectID:      row.ProjectID.String(),
-			CreatedAt:      row.CreatedAt,
-			UpdatedAt:      row.UpdatedAt,
+			// Payload:        row.Payload,
+			ProjectID: row.ProjectID.String(),
+			CreatedAt: row.CreatedAt,
+			UpdatedAt: row.UpdatedAt,
 		})
 	}
 
