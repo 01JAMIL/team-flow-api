@@ -108,6 +108,7 @@ func (app *application) routes() http.Handler {
 		authGroup.POST("/projects/:projectID/integrations/github", integrationsHandler.ConnectRepository)
 		authGroup.GET("/projects/:projectID/integrations/github", integrationsHandler.GetProjectIntegration)
 		authGroup.POST("/projects/:projectID/integrations/github/regenerate-secret", integrationsHandler.RegenerateSecret)
+		authGroup.GET("/projects/:projectID/integration-tasks", integrationsHandler.GetProjectIntegrationTasks)
 
 		/* Tasks routes */
 		authGroup.POST("/projects/:projectID/tasks", tasksHandler.CreateTask)

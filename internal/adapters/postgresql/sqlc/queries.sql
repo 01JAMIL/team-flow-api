@@ -242,6 +242,11 @@ FROM subscriptions
 WHERE user_id = $1
   AND status = 'ACTIVE' LIMIT 1;
 
+-- name: GetProjectIntegration :one
+SELECT *
+FROM project_integrations
+WHERE project_id = $1;
+
 -- name: CreateIntegrationTask :one
 INSERT INTO integration_tasks (id,
                                provider,
@@ -295,6 +300,26 @@ UPDATE integration_tasks
 SET status = $3
 WHERE external_id = $1
   AND project_id = $2 RETURNING *;
+
+-- name: GetProjectIntegrationTasks :many
+SELECT count(*) OVER () AS total_count, id,
+       provider,
+       resource_type,
+       external_id,
+       repository_name,
+       issue_number,
+       title,
+       description,
+       status,
+       assignee_id,
+       payload,
+       project_id,
+       created_at,
+       updated_at
+FROM integration_tasks
+WHERE project_id = $1
+ORDER BY created_at DESC LIMIT $2
+OFFSET $3;
 
 -- name: GetUserKPIs :one
 WITH user_workspaces AS (SELECT id

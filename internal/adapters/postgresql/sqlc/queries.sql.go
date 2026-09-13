@@ -557,6 +557,29 @@ func (q *Queries) GetProjectById(ctx context.Context, id pgtype.UUID) (Project, 
 	return i, err
 }
 
+const getProjectIntegration = `-- name: GetProjectIntegration :one
+SELECT id, project_id, provider, repository_owner, repository_name, webhook_secret, is_active, created_at, updated_at
+FROM project_integrations
+WHERE project_id = $1
+`
+
+func (q *Queries) GetProjectIntegration(ctx context.Context, projectID pgtype.UUID) (ProjectIntegration, error) {
+	row := q.db.QueryRow(ctx, getProjectIntegration, projectID)
+	var i ProjectIntegration
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Provider,
+		&i.RepositoryOwner,
+		&i.RepositoryName,
+		&i.WebhookSecret,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getProjectIntegrationByProjectID = `-- name: GetProjectIntegrationByProjectID :one
 SELECT id, project_id, provider, repository_owner, repository_name, webhook_secret, is_active, created_at, updated_at
 FROM project_integrations
@@ -609,6 +632,87 @@ func (q *Queries) GetProjectIntegrationByRepository(ctx context.Context, arg Get
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getProjectIntegrationTasks = `-- name: GetProjectIntegrationTasks :many
+SELECT count(*) OVER () AS total_count, id,
+       provider,
+       resource_type,
+       external_id,
+       repository_name,
+       issue_number,
+       title,
+       description,
+       status,
+       assignee_id,
+       payload,
+       project_id,
+       created_at,
+       updated_at
+FROM integration_tasks
+WHERE project_id = $1
+ORDER BY created_at DESC LIMIT $2
+OFFSET $3
+`
+
+type GetProjectIntegrationTasksParams struct {
+	ProjectID pgtype.UUID `json:"project_id"`
+	Limit     int32       `json:"limit"`
+	Offset    int32       `json:"offset"`
+}
+
+type GetProjectIntegrationTasksRow struct {
+	TotalCount     int64              `json:"total_count"`
+	ID             pgtype.UUID        `json:"id"`
+	Provider       string             `json:"provider"`
+	ResourceType   string             `json:"resource_type"`
+	ExternalID     string             `json:"external_id"`
+	RepositoryName string             `json:"repository_name"`
+	IssueNumber    int32              `json:"issue_number"`
+	Title          string             `json:"title"`
+	Description    pgtype.Text        `json:"description"`
+	Status         string             `json:"status"`
+	AssigneeID     pgtype.UUID        `json:"assignee_id"`
+	Payload        []byte             `json:"payload"`
+	ProjectID      pgtype.UUID        `json:"project_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetProjectIntegrationTasks(ctx context.Context, arg GetProjectIntegrationTasksParams) ([]GetProjectIntegrationTasksRow, error) {
+	rows, err := q.db.Query(ctx, getProjectIntegrationTasks, arg.ProjectID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetProjectIntegrationTasksRow
+	for rows.Next() {
+		var i GetProjectIntegrationTasksRow
+		if err := rows.Scan(
+			&i.TotalCount,
+			&i.ID,
+			&i.Provider,
+			&i.ResourceType,
+			&i.ExternalID,
+			&i.RepositoryName,
+			&i.IssueNumber,
+			&i.Title,
+			&i.Description,
+			&i.Status,
+			&i.AssigneeID,
+			&i.Payload,
+			&i.ProjectID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getProjectTasks = `-- name: GetProjectTasks :many

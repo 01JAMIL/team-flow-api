@@ -25,6 +25,7 @@ type Service interface {
 	ConnectRepository(ctx context.Context, projectID, loggedUserID string, payload connectRepositoryPayload) (connectRepositoryResponse, error)
 	GetProjectIntegration(ctx context.Context, projectID string) (projectIntegrationResponse, error)
 	RegenerateSecret(ctx context.Context, projectID, loggedUserID string) (regenerateSecretResponse, error)
+	GetProjectIntegrationTasks(ctx context.Context, projectID string, page, pageSize int) (getProjectIntegrationTasksResponse, error)
 	CreateIntegrationTask(ctx context.Context, body []byte, signature string, payload createIntegrationTaskParams) (repo.IntegrationTask, error)
 	UpdateIntegrationTaskStatus(ctx context.Context, body []byte, signature string, payload updateIntegrationTaskStatusParams) (repo.IntegrationTask, error)
 }
@@ -127,6 +128,64 @@ func (s *svc) GetProjectIntegration(ctx context.Context, projectID string) (proj
 		IsActive:        integration.IsActive,
 		CreatedAt:       integration.CreatedAt,
 		UpdatedAt:       integration.UpdatedAt,
+	}, nil
+}
+
+func (s *svc) GetProjectIntegrationTasks(ctx context.Context, projectID string, page, pageSize int) (getProjectIntegrationTasksResponse, error) {
+	projectUUID, err := uuid.Parse(projectID)
+	if err != nil {
+		return getProjectIntegrationTasksResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid project ID")
+	}
+
+	_, err = s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: projectUUID, Valid: true})
+	if err != nil {
+		return getProjectIntegrationTasksResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
+	}
+
+	offset := (page - 1) * pageSize
+	rows, err := s.repo.GetProjectIntegrationTasks(ctx, repo.GetProjectIntegrationTasksParams{
+		ProjectID: pgtype.UUID{Bytes: projectUUID, Valid: true},
+		Limit:     int32(pageSize),
+		Offset:    int32(offset),
+	})
+	if err != nil {
+		return getProjectIntegrationTasksResponse{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to fetch integration tasks", err)
+	}
+
+	integrationTasks := make([]integrationTaskResponse, 0, len(rows))
+
+	var total int64
+	if len(rows) > 0 {
+		total = rows[0].TotalCount
+	}
+
+	for _, row := range rows {
+		integrationTasks = append(integrationTasks, integrationTaskResponse{
+			ID:             row.ID.String(),
+			Provider:       row.Provider,
+			ResourceType:   row.ResourceType,
+			ExternalID:     row.ExternalID,
+			RepositoryName: row.RepositoryName,
+			IssueNumber:    row.IssueNumber,
+			Title:          row.Title,
+			Description:    row.Description,
+			Status:         row.Status,
+			AssigneeID:     row.AssigneeID,
+			Payload:        row.Payload,
+			ProjectID:      row.ProjectID.String(),
+			CreatedAt:      row.CreatedAt,
+			UpdatedAt:      row.UpdatedAt,
+		})
+	}
+
+	return getProjectIntegrationTasksResponse{
+		IntegrationTasks: integrationTasks,
+		Pagination: integrationPaginationResponse{
+			Page:       page,
+			PageSize:   pageSize,
+			Total:      total,
+			TotalPages: (int(total) + pageSize - 1) / pageSize,
+		},
 	}, nil
 }
 
