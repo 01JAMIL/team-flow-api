@@ -321,6 +321,22 @@ WHERE project_id = $1
 ORDER BY created_at DESC LIMIT $2
 OFFSET $3;
 
+-- name: GetUsers :many
+SELECT count(*) OVER () AS total_count,
+       id,
+       first_name,
+       last_name,
+       email,
+       created_at,
+       updated_at
+FROM users
+WHERE id <> sqlc.arg(excluded_user_id)
+  AND (first_name ILIKE '%' || sqlc.arg(search) || '%'
+    OR last_name ILIKE '%' || sqlc.arg(search) || '%'
+    OR email ILIKE '%' || sqlc.arg(search) || '%')
+ORDER BY created_at DESC
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
 -- name: GetUserKPIs :one
 WITH user_workspaces AS (SELECT id
                          FROM workspaces

@@ -44,6 +44,7 @@ type Querier interface {
 	GetUserKPIs(ctx context.Context, userID pgtype.UUID) (GetUserKPIsRow, error)
 	GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspaceByIDParams) (Workspace, error)
 	GetUserWorkspaces(ctx context.Context, arg GetUserWorkspacesParams) ([]GetUserWorkspacesRow, error)
+	GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error)
 	GetWorkspaceByID(ctx context.Context, id pgtype.UUID) (Workspace, error)
 	GetWorkspaceMembers(ctx context.Context, arg GetWorkspaceMembersParams) ([]GetWorkspaceMembersRow, error)
 	GetWorkspaceProjects(ctx context.Context, arg GetWorkspaceProjectsParams) ([]GetWorkspaceProjectsRow, error)

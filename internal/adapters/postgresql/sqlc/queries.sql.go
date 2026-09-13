@@ -1076,6 +1076,73 @@ func (q *Queries) GetUserWorkspaces(ctx context.Context, arg GetUserWorkspacesPa
 	return items, nil
 }
 
+const getUsers = `-- name: GetUsers :many
+SELECT count(*) OVER () AS total_count,
+       id,
+       first_name,
+       last_name,
+       email,
+       created_at,
+       updated_at
+FROM users
+WHERE id <> $1
+  AND (first_name ILIKE '%' || $2 || '%'
+    OR last_name ILIKE '%' || $2 || '%'
+    OR email ILIKE '%' || $2 || '%')
+ORDER BY created_at DESC
+LIMIT $4 OFFSET $3
+`
+
+type GetUsersParams struct {
+	ExcludedUserID pgtype.UUID `json:"excluded_user_id"`
+	Search         pgtype.Text `json:"search"`
+	PageOffset     int32       `json:"page_offset"`
+	PageLimit      int32       `json:"page_limit"`
+}
+
+type GetUsersRow struct {
+	TotalCount int64              `json:"total_count"`
+	ID         pgtype.UUID        `json:"id"`
+	FirstName  string             `json:"first_name"`
+	LastName   string             `json:"last_name"`
+	Email      string             `json:"email"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
+	rows, err := q.db.Query(ctx, getUsers,
+		arg.ExcludedUserID,
+		arg.Search,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUsersRow
+	for rows.Next() {
+		var i GetUsersRow
+		if err := rows.Scan(
+			&i.TotalCount,
+			&i.ID,
+			&i.FirstName,
+			&i.LastName,
+			&i.Email,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getWorkspaceByID = `-- name: GetWorkspaceByID :one
 SELECT id, workspace_name, description, user_id, created_at, updated_at
 FROM workspaces
