@@ -47,8 +47,9 @@ func (h *handler) ConnectRepository(c *gin.Context) {
 
 func (h *handler) GetProjectIntegration(c *gin.Context) {
 	projectID := c.Param("projectID")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
 
-	integration, err := h.service.GetProjectIntegration(c, projectID)
+	integration, err := h.service.GetProjectIntegration(c, projectID, loggedUser.ID)
 	if err != nil {
 		codeerror.HandleError(c, err)
 		return
@@ -61,6 +62,7 @@ func (h *handler) GetProjectIntegration(c *gin.Context) {
 
 func (h *handler) GetProjectIntegrationTasks(c *gin.Context) {
 	projectID := c.Param("projectID")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
 
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil || page < 1 {
@@ -72,7 +74,7 @@ func (h *handler) GetProjectIntegrationTasks(c *gin.Context) {
 		pageSize = 10
 	}
 
-	response, err := h.service.GetProjectIntegrationTasks(c, projectID, page, pageSize)
+	response, err := h.service.GetProjectIntegrationTasks(c, projectID, loggedUser.ID, page, pageSize)
 	if err != nil {
 		codeerror.HandleError(c, err)
 		return

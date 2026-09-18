@@ -44,6 +44,7 @@ func (h *handler) CreateProject(c *gin.Context) {
 
 func (h *handler) GetWorkspaceProjects(c *gin.Context) {
 	workspaceID := c.Param("id")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
 
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil || page < 1 {
@@ -55,7 +56,7 @@ func (h *handler) GetWorkspaceProjects(c *gin.Context) {
 		pageSize = DefaultPageSize
 	}
 
-	response, err := h.service.GetWorkspaceProjects(c, workspaceID, page, pageSize)
+	response, err := h.service.GetWorkspaceProjects(c, workspaceID, loggedUser.ID, page, pageSize)
 	if err != nil {
 		codeerror.HandleError(c, err)
 		return
@@ -66,8 +67,9 @@ func (h *handler) GetWorkspaceProjects(c *gin.Context) {
 
 func (h *handler) GetProjectByID(c *gin.Context) {
 	projectID := c.Param("projectID")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
 
-	project, err := h.service.GetProjectByID(c, projectID)
+	project, err := h.service.GetProjectByID(c, projectID, loggedUser.ID)
 	if err != nil {
 		codeerror.HandleError(c, err)
 		return

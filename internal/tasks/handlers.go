@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"gin-api-1/internal/auth"
 	codeerror "gin-api-1/internal/codeerror"
 	"net/http"
 	"strconv"
@@ -42,8 +43,9 @@ func (h *handler) CreateTask(c *gin.Context) {
 
 func (h *handler) GetTaskByID(c *gin.Context) {
 	taskID := c.Param("id")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
 
-	task, err := h.service.GetTaskByID(c, taskID)
+	task, err := h.service.GetTaskByID(c, taskID, loggedUser.ID)
 	if err != nil {
 		codeerror.HandleError(c, err)
 		return
@@ -92,6 +94,7 @@ func (h *handler) DeleteTask(c *gin.Context) {
 
 func (h *handler) GetProjectTasks(c *gin.Context) {
 	projectID := c.Param("projectID")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
 
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil || page < 1 {
@@ -103,7 +106,7 @@ func (h *handler) GetProjectTasks(c *gin.Context) {
 		pageSize = DefaultPageSize
 	}
 
-	response, err := h.service.GetProjectTasks(c, projectID, page, pageSize)
+	response, err := h.service.GetProjectTasks(c, projectID, loggedUser.ID, page, pageSize)
 	if err != nil {
 		codeerror.HandleError(c, err)
 		return

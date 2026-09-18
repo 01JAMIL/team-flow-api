@@ -23,9 +23,9 @@ var repositoryPattern = regexp.MustCompile(`^[A-Za-z0-9-_.]+/[A-Za-z0-9-_.]+$`)
 
 type Service interface {
 	ConnectRepository(ctx context.Context, projectID, loggedUserID string, payload connectRepositoryPayload) (connectRepositoryResponse, error)
-	GetProjectIntegration(ctx context.Context, projectID string) (projectIntegrationResponse, error)
+	GetProjectIntegration(ctx context.Context, projectID, loggedUserID string) (projectIntegrationResponse, error)
 	RegenerateSecret(ctx context.Context, projectID, loggedUserID string) (regenerateSecretResponse, error)
-	GetProjectIntegrationTasks(ctx context.Context, projectID string, page, pageSize int) (getProjectIntegrationTasksResponse, error)
+	GetProjectIntegrationTasks(ctx context.Context, projectID, loggedUserID string, page, pageSize int) (getProjectIntegrationTasksResponse, error)
 	CreateIntegrationTask(ctx context.Context, body []byte, signature string, payload createIntegrationTaskParams) (repo.IntegrationTask, error)
 	UpdateIntegrationTaskStatus(ctx context.Context, body []byte, signature string, payload updateIntegrationTaskStatusParams) (repo.IntegrationTask, error)
 }
@@ -108,10 +108,19 @@ func (s *svc) ConnectRepository(ctx context.Context, projectID, loggedUserID str
 	}, nil
 }
 
-func (s *svc) GetProjectIntegration(ctx context.Context, projectID string) (projectIntegrationResponse, error) {
+func (s *svc) GetProjectIntegration(ctx context.Context, projectID, loggedUserID string) (projectIntegrationResponse, error) {
 	projectUUID, err := uuid.Parse(projectID)
 	if err != nil {
 		return projectIntegrationResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
+	}
+
+	project, err := s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: projectUUID, Valid: true})
+	if err != nil {
+		return projectIntegrationResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
+	}
+
+	if err := s.ensureWorkspaceAccess(ctx, project.WorkspaceID.String(), loggedUserID); err != nil {
+		return projectIntegrationResponse{}, err
 	}
 
 	integration, err := s.repo.GetProjectIntegrationByProjectID(ctx, pgtype.UUID{Bytes: projectUUID, Valid: true})
@@ -131,15 +140,19 @@ func (s *svc) GetProjectIntegration(ctx context.Context, projectID string) (proj
 	}, nil
 }
 
-func (s *svc) GetProjectIntegrationTasks(ctx context.Context, projectID string, page, pageSize int) (getProjectIntegrationTasksResponse, error) {
+func (s *svc) GetProjectIntegrationTasks(ctx context.Context, projectID string, loggedUserID string, page, pageSize int) (getProjectIntegrationTasksResponse, error) {
 	projectUUID, err := uuid.Parse(projectID)
 	if err != nil {
 		return getProjectIntegrationTasksResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid project ID")
 	}
 
-	_, err = s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: projectUUID, Valid: true})
+	project, err := s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: projectUUID, Valid: true})
 	if err != nil {
 		return getProjectIntegrationTasksResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
+	}
+
+	if err := s.ensureWorkspaceAccess(ctx, project.WorkspaceID.String(), loggedUserID); err != nil {
+		return getProjectIntegrationTasksResponse{}, err
 	}
 
 	offset := (page - 1) * pageSize
@@ -231,6 +244,28 @@ func (s *svc) RegenerateSecret(ctx context.Context, projectID, loggedUserID stri
 		WebhookURL:    webhookURL,
 		WebhookSecret: updated.WebhookSecret,
 	}, nil
+}
+
+func (s *svc) ensureWorkspaceAccess(ctx context.Context, workspaceID, loggedUserID string) error {
+	workspaceUUID, err := uuid.Parse(workspaceID)
+	if err != nil {
+		return codeerror.New(codeerror.InvalidUUID, "Invalid workspace ID")
+	}
+
+	userUUID, err := uuid.Parse(loggedUserID)
+	if err != nil {
+		return codeerror.New(codeerror.UserNotFound, "User not found")
+	}
+
+	_, err = s.repo.GetAccessibleWorkspaceByID(ctx, repo.GetAccessibleWorkspaceByIDParams{
+		ID:     pgtype.UUID{Bytes: workspaceUUID, Valid: true},
+		UserID: pgtype.UUID{Bytes: userUUID, Valid: true},
+	})
+	if err != nil {
+		return codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+	}
+
+	return nil
 }
 
 func (s *svc) ensureAdminMember(ctx context.Context, workspaceID, loggedUserID string) error {

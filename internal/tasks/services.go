@@ -15,18 +15,30 @@ const dateLayout = "2006-01-02"
 
 type Service interface {
 	CreateTask(ctx context.Context, projectID string, payload createTaskPayload) (taskResponse, error)
-	GetTaskByID(ctx context.Context, taskID string) (taskResponse, error)
-	GetProjectTasks(ctx context.Context, projectID string, page, pageSize int) (getProjectTasksResponse, error)
+	GetTaskByID(ctx context.Context, taskID string, loggedUserID string) (taskResponse, error)
+	GetProjectTasks(ctx context.Context, projectID string, loggedUserID string, page, pageSize int) (getProjectTasksResponse, error)
 	UpdateTask(ctx context.Context, taskID string, payload updateTaskPayload) (taskResponse, error)
 	DeleteTask(ctx context.Context, taskID string) error
 }
 
+// Interface for the database dependency.
+type taskRepository interface {
+	CreateTask(ctx context.Context, arg repo.CreateTaskParams) (repo.Task, error)
+	DeleteTask(ctx context.Context, id pgtype.UUID) error
+	GetAccessibleWorkspaceByID(ctx context.Context, arg repo.GetAccessibleWorkspaceByIDParams) (repo.Workspace, error)
+	GetProjectById(ctx context.Context, id pgtype.UUID) (repo.Project, error)
+	GetProjectTasks(ctx context.Context, arg repo.GetProjectTasksParams) ([]repo.GetProjectTasksRow, error)
+	GetTaskById(ctx context.Context, id pgtype.UUID) (repo.Task, error)
+	GetUserById(ctx context.Context, id pgtype.UUID) (repo.User, error)
+	UpdateTask(ctx context.Context, arg repo.UpdateTaskParams) (repo.Task, error)
+}
+
 type svc struct {
-	repo *repo.Queries
+	repo taskRepository
 	db   *pgxpool.Pool
 }
 
-func NewTasksService(repo *repo.Queries, db *pgxpool.Pool) Service {
+func NewTasksService(repo taskRepository, db *pgxpool.Pool) Service {
 	return &svc{
 		repo: repo,
 		db:   db,
@@ -87,7 +99,7 @@ func (s *svc) CreateTask(ctx context.Context, projectID string, payload createTa
 	return toTaskResponse(task), nil
 }
 
-func (s *svc) GetTaskByID(ctx context.Context, taskID string) (taskResponse, error) {
+func (s *svc) GetTaskByID(ctx context.Context, taskID string, loggedUserID string) (taskResponse, error) {
 	id, err := uuid.Parse(taskID)
 	if err != nil {
 		return taskResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid task ID")
@@ -96,6 +108,10 @@ func (s *svc) GetTaskByID(ctx context.Context, taskID string) (taskResponse, err
 	task, err := s.repo.GetTaskById(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
 		return taskResponse{}, codeerror.New(codeerror.TaskNotFound, "Task not found")
+	}
+
+	if err := s.ensureWorkspaceAccessForTask(ctx, task.ProjectID.String(), loggedUserID); err != nil {
+		return taskResponse{}, err
 	}
 
 	return toTaskResponse(task), nil
@@ -172,15 +188,55 @@ func (s *svc) DeleteTask(ctx context.Context, taskID string) error {
 	return nil
 }
 
-func (s *svc) GetProjectTasks(ctx context.Context, projectID string, page, pageSize int) (getProjectTasksResponse, error) {
+func (s *svc) ensureWorkspaceAccessForTask(ctx context.Context, projectID, loggedUserID string) error {
+	projectUUID, err := uuid.Parse(projectID)
+	if err != nil {
+		return codeerror.New(codeerror.InvalidUUID, "Invalid project ID")
+	}
+
+	project, err := s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: projectUUID, Valid: true})
+	if err != nil {
+		return codeerror.New(codeerror.ProjectNotFound, "Project not found")
+	}
+
+	return s.ensureWorkspaceAccess(ctx, project.WorkspaceID.String(), loggedUserID)
+}
+
+func (s *svc) ensureWorkspaceAccess(ctx context.Context, workspaceID, loggedUserID string) error {
+	workspaceUUID, err := uuid.Parse(workspaceID)
+	if err != nil {
+		return codeerror.New(codeerror.InvalidUUID, "Invalid workspace ID")
+	}
+
+	userUUID, err := uuid.Parse(loggedUserID)
+	if err != nil {
+		return codeerror.New(codeerror.UserNotFound, "User not found")
+	}
+
+	_, err = s.repo.GetAccessibleWorkspaceByID(ctx, repo.GetAccessibleWorkspaceByIDParams{
+		ID:     pgtype.UUID{Bytes: workspaceUUID, Valid: true},
+		UserID: pgtype.UUID{Bytes: userUUID, Valid: true},
+	})
+	if err != nil {
+		return codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+	}
+
+	return nil
+}
+
+func (s *svc) GetProjectTasks(ctx context.Context, projectID string, loggedUserID string, page, pageSize int) (getProjectTasksResponse, error) {
 	id, err := uuid.Parse(projectID)
 	if err != nil {
 		return getProjectTasksResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid project ID")
 	}
 
-	_, err = s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	project, err := s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
 		return getProjectTasksResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
+	}
+
+	if err := s.ensureWorkspaceAccess(ctx, project.WorkspaceID.String(), loggedUserID); err != nil {
+		return getProjectTasksResponse{}, err
 	}
 
 	rows, err := s.repo.GetProjectTasks(ctx, repo.GetProjectTasksParams{

@@ -16,18 +16,32 @@ import (
 type Service interface {
 	WorkspaceExists(ctx context.Context, workspaceID string) error
 	CreateProject(ctx context.Context, workspaceID string, loggedUserID string, payload createProjectPayload) (projectResponse, error)
-	GetWorkspaceProjects(ctx context.Context, workspaceID string, page, pageSize int) (getWorkspaceProjectsResponse, error)
-	GetProjectByID(ctx context.Context, projectID string) (projectResponse, error)
+	GetWorkspaceProjects(ctx context.Context, workspaceID string, loggedUserID string, page, pageSize int) (getWorkspaceProjectsResponse, error)
+	GetProjectByID(ctx context.Context, projectID string, loggedUserID string) (projectResponse, error)
 	UpdateProject(ctx context.Context, projectID string, loggedUserID string, payload updateProjectPayload) (projectResponse, error)
 	DeleteProject(ctx context.Context, projectID string, loggedUserID string) error
 }
 
+// Interface for the database dependency.
+type projectRepository interface {
+	CountWorkspaceProjects(ctx context.Context, workspaceID pgtype.UUID) (int64, error)
+	CreateProject(ctx context.Context, arg repo.CreateProjectParams) (repo.Project, error)
+	DeleteProject(ctx context.Context, id pgtype.UUID) error
+	GetAccessibleWorkspaceByID(ctx context.Context, arg repo.GetAccessibleWorkspaceByIDParams) (repo.Workspace, error)
+	GetMemberFromWorkspace(ctx context.Context, arg repo.GetMemberFromWorkspaceParams) (repo.WorkspaceMember, error)
+	GetProjectById(ctx context.Context, id pgtype.UUID) (repo.Project, error)
+	GetUserActiveSubscription(ctx context.Context, userID pgtype.UUID) (repo.Subscription, error)
+	GetWorkspaceByID(ctx context.Context, id pgtype.UUID) (repo.Workspace, error)
+	GetWorkspaceProjects(ctx context.Context, arg repo.GetWorkspaceProjectsParams) ([]repo.GetWorkspaceProjectsRow, error)
+	UpdateProject(ctx context.Context, arg repo.UpdateProjectParams) (repo.Project, error)
+}
+
 type svc struct {
-	repo *repo.Queries
+	repo projectRepository
 	db   *pgxpool.Pool
 }
 
-func NewProjectsService(repo *repo.Queries, db *pgxpool.Pool) Service {
+func NewProjectsService(repo projectRepository, db *pgxpool.Pool) Service {
 	return &svc{
 		repo: repo,
 		db:   db,
@@ -76,15 +90,36 @@ func (s *svc) ensureAdminMember(ctx context.Context, workspaceID, loggedUserID, 
 	return nil
 }
 
-func (s *svc) GetWorkspaceProjects(ctx context.Context, workspaceID string, page, pageSize int) (getWorkspaceProjectsResponse, error) {
+func (s *svc) ensureWorkspaceAccess(ctx context.Context, workspaceID, loggedUserID string) error {
+	workspaceUUID, err := uuid.Parse(workspaceID)
+	if err != nil {
+		return codeerror.New(codeerror.InvalidUUID, "Invalid workspace ID")
+	}
+
+	userUUID, err := uuid.Parse(loggedUserID)
+	if err != nil {
+		return codeerror.New(codeerror.UserNotFound, "User not found")
+	}
+
+	_, err = s.repo.GetAccessibleWorkspaceByID(ctx, repo.GetAccessibleWorkspaceByIDParams{
+		ID:     pgtype.UUID{Bytes: workspaceUUID, Valid: true},
+		UserID: pgtype.UUID{Bytes: userUUID, Valid: true},
+	})
+	if err != nil {
+		return codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+	}
+
+	return nil
+}
+
+func (s *svc) GetWorkspaceProjects(ctx context.Context, workspaceID string, loggedUserID string, page, pageSize int) (getWorkspaceProjectsResponse, error) {
 	workspaceUUID, err := uuid.Parse(workspaceID)
 	if err != nil {
 		return getWorkspaceProjectsResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid workspace ID")
 	}
 
-	_, err = s.repo.GetWorkspaceByID(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
-	if err != nil {
-		return getWorkspaceProjectsResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
+	if err := s.ensureWorkspaceAccess(ctx, workspaceID, loggedUserID); err != nil {
+		return getWorkspaceProjectsResponse{}, err
 	}
 
 	rows, err := s.repo.GetWorkspaceProjects(ctx, repo.GetWorkspaceProjectsParams{
@@ -204,7 +239,7 @@ func (s *svc) CreateProject(ctx context.Context, workspaceID string, loggedUserI
 
 }
 
-func (s *svc) GetProjectByID(ctx context.Context, projectID string) (projectResponse, error) {
+func (s *svc) GetProjectByID(ctx context.Context, projectID string, loggedUserID string) (projectResponse, error) {
 	id, err := uuid.Parse(projectID)
 	if err != nil {
 		return projectResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
@@ -213,6 +248,10 @@ func (s *svc) GetProjectByID(ctx context.Context, projectID string) (projectResp
 	project, err := s.repo.GetProjectById(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
 		return projectResponse{}, codeerror.New(codeerror.ProjectNotFound, "Project not found")
+	}
+
+	if err := s.ensureWorkspaceAccess(ctx, project.WorkspaceID.String(), loggedUserID); err != nil {
+		return projectResponse{}, err
 	}
 
 	return toProjectResponse(project), nil

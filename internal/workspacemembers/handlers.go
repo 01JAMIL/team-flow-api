@@ -1,6 +1,7 @@
 package workspacemembers
 
 import (
+	"gin-api-1/internal/auth"
 	codeerror "gin-api-1/internal/codeerror"
 	"net/http"
 	"strconv"
@@ -42,6 +43,7 @@ func (h *handler) AddWorkspaceMember(c *gin.Context) {
 
 func (h *handler) GetWorkspaceMembers(c *gin.Context) {
 	id := c.Param("id")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
 
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil || page < 1 {
@@ -53,7 +55,7 @@ func (h *handler) GetWorkspaceMembers(c *gin.Context) {
 		pageSize = DefaultPageSize
 	}
 
-	response, err := h.service.GetWorkspaceMembers(c, id, page, pageSize)
+	response, err := h.service.GetWorkspaceMembers(c, id, loggedUser.ID, page, pageSize)
 	if err != nil {
 		codeerror.HandleError(c, err)
 		return

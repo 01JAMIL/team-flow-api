@@ -24,13 +24,29 @@ type Service interface {
 	CreateCheckoutSession(ctx context.Context, userID string) (*stripe.CheckoutSession, error)
 }
 
+// Interface for the database dependency.
+type workspaceRepository interface {
+	AddWorkspaceMember(ctx context.Context, arg repo.AddWorkspaceMemberParams) (repo.WorkspaceMember, error)
+	CountUserWorkspaces(ctx context.Context, userID pgtype.UUID) (int64, error)
+	CreateWorkspace(ctx context.Context, arg repo.CreateWorkspaceParams) (repo.Workspace, error)
+	DeleteWorkspace(ctx context.Context, arg repo.DeleteWorkspaceParams) error
+	GetAccessibleWorkspaceByID(ctx context.Context, arg repo.GetAccessibleWorkspaceByIDParams) (repo.Workspace, error)
+	GetUserActiveProSubscription(ctx context.Context, userID pgtype.UUID) (repo.Subscription, error)
+	GetUserById(ctx context.Context, id pgtype.UUID) (repo.User, error)
+	GetUserWorkspaceByID(ctx context.Context, arg repo.GetUserWorkspaceByIDParams) (repo.Workspace, error)
+	GetUserWorkspaces(ctx context.Context, arg repo.GetUserWorkspacesParams) ([]repo.GetUserWorkspacesRow, error)
+	UpdateUserStripeCustomer(ctx context.Context, arg repo.UpdateUserStripeCustomerParams) (repo.User, error)
+	UpdateWorkspace(ctx context.Context, arg repo.UpdateWorkspaceParams) (repo.Workspace, error)
+	WithTx(tx pgx.Tx) *repo.Queries
+}
+
 type svc struct {
-	repo   *repo.Queries
+	repo   workspaceRepository
 	db     *pgxpool.Pool
 	stripe payment.Svc
 }
 
-func NewWorkspaceService(repo *repo.Queries, db *pgxpool.Pool, stripe payment.Svc) Service {
+func NewWorkspaceService(repo workspaceRepository, db *pgxpool.Pool, stripe payment.Svc) Service {
 	return &svc{
 		repo:   repo,
 		db:     db,
@@ -39,7 +55,10 @@ func NewWorkspaceService(repo *repo.Queries, db *pgxpool.Pool, stripe payment.Sv
 }
 
 func (s *svc) GetUserWorkspaceByID(ctx context.Context, arg repo.GetUserWorkspaceByIDParams) (repo.Workspace, error) {
-	workspace, err := s.repo.GetUserWorkspaceByID(ctx, arg)
+	workspace, err := s.repo.GetAccessibleWorkspaceByID(ctx, repo.GetAccessibleWorkspaceByIDParams{
+		ID:     arg.ID,
+		UserID: arg.UserID,
+	})
 	if err != nil {
 		return repo.Workspace{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}

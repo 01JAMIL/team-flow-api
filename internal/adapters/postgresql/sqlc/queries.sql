@@ -18,16 +18,30 @@ FROM workspaces
 WHERE user_id = $1
   AND id = $2;
 
+-- name: GetAccessibleWorkspaceByID :one
+SELECT w.id, w.workspace_name, w.description, w.user_id, w.created_at, w.updated_at
+FROM workspaces w
+WHERE w.id = $1
+  AND (w.user_id = $2
+       OR EXISTS (SELECT 1
+                  FROM workspace_members wm
+                  WHERE wm.workspace_id = w.id
+                    AND wm.user_id = $2));
+
 -- name: GetUserWorkspaces :many
-SELECT count(*) OVER () AS total_count, id,
-       workspace_name,
-       description,
-       user_id,
-       created_at,
-       updated_at
-FROM workspaces
-WHERE user_id = $1
-ORDER BY created_at DESC LIMIT $2
+SELECT count(*) OVER () AS total_count, w.id,
+       w.workspace_name,
+       w.description,
+       w.user_id,
+       w.created_at,
+       w.updated_at
+FROM workspaces w
+WHERE w.user_id = $1
+   OR EXISTS (SELECT 1
+              FROM workspace_members wm
+              WHERE wm.workspace_id = w.id
+                AND wm.user_id = $1)
+ORDER BY w.created_at DESC LIMIT $2
 OFFSET $3;
 
 -- name: CreateWorkspace :one
@@ -338,9 +352,13 @@ ORDER BY created_at DESC
 LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: GetUserKPIs :one
-WITH user_workspaces AS (SELECT id
-                         FROM workspaces
-                         WHERE user_id = $1)
+WITH user_workspaces AS (SELECT w.id
+                         FROM workspaces w
+                         WHERE w.user_id = $1
+                            OR EXISTS (SELECT 1
+                                       FROM workspace_members wm
+                                       WHERE wm.workspace_id = w.id
+                                         AND wm.user_id = $1))
 SELECT (SELECT COUNT(*) FROM user_workspaces) AS total_workspaces,
        (SELECT COUNT(DISTINCT p.id)
         FROM projects p
@@ -355,4 +373,4 @@ SELECT (SELECT COUNT(*) FROM user_workspaces) AS total_workspaces,
        (SELECT COUNT(DISTINCT wm.user_id)
         FROM workspace_members wm
                  JOIN workspaces w ON w.id = wm.workspace_id
-        WHERE w.user_id = $1)                 AS team_members;
+        WHERE w.id IN (SELECT id FROM user_workspaces)) AS team_members;

@@ -26,6 +26,7 @@ type Querier interface {
 	DeleteProject(ctx context.Context, id pgtype.UUID) error
 	DeleteTask(ctx context.Context, id pgtype.UUID) error
 	DeleteWorkspace(ctx context.Context, arg DeleteWorkspaceParams) error
+	GetAccessibleWorkspaceByID(ctx context.Context, arg GetAccessibleWorkspaceByIDParams) (Workspace, error)
 	GetMemberFromWorkspace(ctx context.Context, arg GetMemberFromWorkspaceParams) (WorkspaceMember, error)
 	GetMessagesBetweenUsers(ctx context.Context, arg GetMessagesBetweenUsersParams) ([]GetMessagesBetweenUsersRow, error)
 	GetProjectById(ctx context.Context, id pgtype.UUID) (Project, error)

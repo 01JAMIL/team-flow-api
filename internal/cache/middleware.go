@@ -2,7 +2,9 @@ package cache
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"gin-api-1/internal/auth"
@@ -50,8 +52,9 @@ func (r *responseRecorder) WriteHeader(code int) {
 func ResponseCacheMiddleware(cache *RedisCache) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Method != http.MethodGet {
+			memberUserID := captureMemberUserID(c)
 			c.Next()
-			invalidateAfterWrite(c, cache)
+			invalidateAfterWrite(c, cache, memberUserID)
 			return
 		}
 
@@ -92,13 +95,13 @@ func handleGet(c *gin.Context, cache *RedisCache) {
 
 // invalidateAfterWrite bumps the version of every namespace affected by a
 // successful write so previously cached responses become stale.
-func invalidateAfterWrite(c *gin.Context, cache *RedisCache) {
+func invalidateAfterWrite(c *gin.Context, cache *RedisCache, memberUserID string) {
 	status := c.Writer.Status()
 	if status < http.StatusOK || status >= http.StatusMultipleChoices {
 		return
 	}
 
-	for _, namespace := range writeNamespaces(c) {
+	for _, namespace := range writeNamespaces(c, memberUserID) {
 		cache.Increment(c, versionKey(namespace))
 	}
 }
@@ -132,7 +135,7 @@ func readNamespace(c *gin.Context) (string, bool) {
 
 // writeNamespaces returns the cache namespaces to invalidate for a successful
 // write on the given route.
-func writeNamespaces(c *gin.Context) []string {
+func writeNamespaces(c *gin.Context, memberUserID string) []string {
 	switch c.FullPath() {
 	case "/api/v1/workspaces":
 		return []string{"workspaces:" + currentUserID(c)}
@@ -141,9 +144,17 @@ func writeNamespaces(c *gin.Context) []string {
 	case "/api/v1/checkout":
 		return []string{"user-subscription:" + currentUserID(c)}
 	case "/api/v1/workspaces/:id/members":
-		return []string{"workspace-members:" + c.Param("id")}
+		namespaces := []string{"workspace-members:" + c.Param("id")}
+		if memberUserID != "" {
+			namespaces = append(namespaces, "workspaces:"+memberUserID)
+		}
+		return namespaces
 	case "/api/v1/workspaces/:id/members/:userId":
-		return []string{"workspace-members:" + c.Param("id")}
+		namespaces := []string{"workspace-members:" + c.Param("id")}
+		if removedUserID := c.Param("userId"); removedUserID != "" {
+			namespaces = append(namespaces, "workspaces:"+removedUserID, "workspace:"+c.Param("id"))
+		}
+		return namespaces
 	case "/api/v1/workspaces/:id/projects":
 		return []string{"workspace-projects:" + c.Param("id")}
 	case "/api/v1/projects/:projectID":
@@ -173,6 +184,30 @@ func currentUserID(c *gin.Context) string {
 	}
 
 	return userResponse.ID
+}
+
+// captureMemberUserID extracts the invited user's ID from a member-add request
+// body before the handler consumes it, so invalidating their cached workspace
+// list does not depend on the handler.
+func captureMemberUserID(c *gin.Context) string {
+	if c.Request.Method != http.MethodPost || c.FullPath() != "/api/v1/workspaces/:id/members" {
+		return ""
+	}
+
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		return ""
+	}
+	c.Request.Body = io.NopCloser(bytes.NewReader(body))
+
+	var payload struct {
+		UserID string `json:"userId"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return ""
+	}
+
+	return payload.UserID
 }
 
 func versionKey(namespace string) string {
