@@ -12,16 +12,27 @@ import (
 
 type Service interface {
 	AddWorkspaceMember(ctx context.Context, workspaceID string, payload addWorkspaceMemberPayload) (repo.WorkspaceMember, error)
-	GetWorkspaceMembers(ctx context.Context, workspaceID string, page, pageSize int) (getWorkspaceMembersResponse, error)
+	GetWorkspaceMembers(ctx context.Context, workspaceID string, loggedUserID string, page, pageSize int) (getWorkspaceMembersResponse, error)
 	RemoveWorkspaceMember(ctx context.Context, workspaceID, userID string) error
 }
 
+// Interface for the database dependency.
+type workspaceMemberRepository interface {
+	AddWorkspaceMember(ctx context.Context, arg repo.AddWorkspaceMemberParams) (repo.WorkspaceMember, error)
+	DeleteMemberFromWorkspace(ctx context.Context, arg repo.DeleteMemberFromWorkspaceParams) error
+	GetAccessibleWorkspaceByID(ctx context.Context, arg repo.GetAccessibleWorkspaceByIDParams) (repo.Workspace, error)
+	GetMemberFromWorkspace(ctx context.Context, arg repo.GetMemberFromWorkspaceParams) (repo.WorkspaceMember, error)
+	GetUserById(ctx context.Context, id pgtype.UUID) (repo.User, error)
+	GetWorkspaceByID(ctx context.Context, id pgtype.UUID) (repo.Workspace, error)
+	GetWorkspaceMembers(ctx context.Context, arg repo.GetWorkspaceMembersParams) ([]repo.GetWorkspaceMembersRow, error)
+}
+
 type svc struct {
-	repo *repo.Queries
+	repo workspaceMemberRepository
 	db   *pgxpool.Pool
 }
 
-func NewWorkspaceMembersService(repo *repo.Queries, db *pgxpool.Pool) Service {
+func NewWorkspaceMembersService(repo workspaceMemberRepository, db *pgxpool.Pool) Service {
 	return &svc{
 		repo: repo,
 		db:   db,
@@ -95,13 +106,21 @@ func (s *svc) RemoveWorkspaceMember(ctx context.Context, workspaceID, userID str
 	})
 }
 
-func (s *svc) GetWorkspaceMembers(ctx context.Context, workspaceID string, page, pageSize int) (getWorkspaceMembersResponse, error) {
+func (s *svc) GetWorkspaceMembers(ctx context.Context, workspaceID string, loggedUserID string, page, pageSize int) (getWorkspaceMembersResponse, error) {
 	workspaceUUID, err := uuid.Parse(workspaceID)
 	if err != nil {
 		return getWorkspaceMembersResponse{}, codeerror.New(codeerror.InvalidUUID, "Invalid workspace ID")
 	}
 
-	workspace, err := s.repo.GetWorkspaceByID(ctx, pgtype.UUID{Bytes: workspaceUUID, Valid: true})
+	userUUID, err := uuid.Parse(loggedUserID)
+	if err != nil {
+		return getWorkspaceMembersResponse{}, codeerror.New(codeerror.UserNotFound, "User not found")
+	}
+
+	workspace, err := s.repo.GetAccessibleWorkspaceByID(ctx, repo.GetAccessibleWorkspaceByIDParams{
+		ID:     pgtype.UUID{Bytes: workspaceUUID, Valid: true},
+		UserID: pgtype.UUID{Bytes: userUUID, Valid: true},
+	})
 	if err != nil {
 		return getWorkspaceMembersResponse{}, codeerror.New(codeerror.WorkspaceNotFound, "Workspace not found")
 	}

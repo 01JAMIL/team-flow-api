@@ -47,8 +47,9 @@ func (h *handler) ConnectRepository(c *gin.Context) {
 
 func (h *handler) GetProjectIntegration(c *gin.Context) {
 	projectID := c.Param("projectID")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
 
-	integration, err := h.service.GetProjectIntegration(c, projectID)
+	integration, err := h.service.GetProjectIntegration(c, projectID, loggedUser.ID)
 	if err != nil {
 		codeerror.HandleError(c, err)
 		return
@@ -57,6 +58,29 @@ func (h *handler) GetProjectIntegration(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"integration": integration,
 	})
+}
+
+func (h *handler) GetProjectIntegrationTasks(c *gin.Context) {
+	projectID := c.Param("projectID")
+	loggedUser := c.MustGet("user").(auth.UserResponse)
+
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	pageSize, err := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
+	if err != nil || pageSize < 1 {
+		pageSize = 10
+	}
+
+	response, err := h.service.GetProjectIntegrationTasks(c, projectID, loggedUser.ID, page, pageSize)
+	if err != nil {
+		codeerror.HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func (h *handler) RegenerateSecret(c *gin.Context) {

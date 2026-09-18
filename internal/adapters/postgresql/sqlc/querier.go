@@ -26,11 +26,14 @@ type Querier interface {
 	DeleteProject(ctx context.Context, id pgtype.UUID) error
 	DeleteTask(ctx context.Context, id pgtype.UUID) error
 	DeleteWorkspace(ctx context.Context, arg DeleteWorkspaceParams) error
+	GetAccessibleWorkspaceByID(ctx context.Context, arg GetAccessibleWorkspaceByIDParams) (Workspace, error)
 	GetMemberFromWorkspace(ctx context.Context, arg GetMemberFromWorkspaceParams) (WorkspaceMember, error)
 	GetMessagesBetweenUsers(ctx context.Context, arg GetMessagesBetweenUsersParams) ([]GetMessagesBetweenUsersRow, error)
 	GetProjectById(ctx context.Context, id pgtype.UUID) (Project, error)
+	GetProjectIntegration(ctx context.Context, projectID pgtype.UUID) (ProjectIntegration, error)
 	GetProjectIntegrationByProjectID(ctx context.Context, projectID pgtype.UUID) (ProjectIntegration, error)
 	GetProjectIntegrationByRepository(ctx context.Context, arg GetProjectIntegrationByRepositoryParams) (ProjectIntegration, error)
+	GetProjectIntegrationTasks(ctx context.Context, arg GetProjectIntegrationTasksParams) ([]GetProjectIntegrationTasksRow, error)
 	GetProjectTasks(ctx context.Context, arg GetProjectTasksParams) ([]GetProjectTasksRow, error)
 	GetSubscriptionByStripeSubscription(ctx context.Context, stripeSubscriptionID string) (Subscription, error)
 	GetTaskById(ctx context.Context, id pgtype.UUID) (Task, error)
@@ -42,6 +45,7 @@ type Querier interface {
 	GetUserKPIs(ctx context.Context, userID pgtype.UUID) (GetUserKPIsRow, error)
 	GetUserWorkspaceByID(ctx context.Context, arg GetUserWorkspaceByIDParams) (Workspace, error)
 	GetUserWorkspaces(ctx context.Context, arg GetUserWorkspacesParams) ([]GetUserWorkspacesRow, error)
+	GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error)
 	GetWorkspaceByID(ctx context.Context, id pgtype.UUID) (Workspace, error)
 	GetWorkspaceMembers(ctx context.Context, arg GetWorkspaceMembersParams) ([]GetWorkspaceMembersRow, error)
 	GetWorkspaceProjects(ctx context.Context, arg GetWorkspaceProjectsParams) ([]GetWorkspaceProjectsRow, error)

@@ -13,6 +13,7 @@ import (
 	"gin-api-1/internal/projects"
 	"gin-api-1/internal/subscriptions"
 	"gin-api-1/internal/tasks"
+	"gin-api-1/internal/users"
 	"gin-api-1/internal/websocket"
 	"gin-api-1/internal/workspace"
 	"gin-api-1/internal/workspacemembers"
@@ -55,6 +56,9 @@ func (app *application) routes() http.Handler {
 	dashboardService := dashboard.NewDashboardService(repo.New(app.db))
 	dashboardHandler := dashboard.NewDashboardHandler(dashboardService)
 
+	usersService := users.NewUsersService(repo.New(app.db), app.db)
+	usersHandler := users.NewUsersHandler(usersService)
+
 	/* Public routes */
 	v1 := r.Group("/api/v1")
 	{
@@ -77,6 +81,9 @@ func (app *application) routes() http.Handler {
 	authGroup.Use(cache.ResponseCacheMiddleware(app.cache))
 	{
 		authGroup.GET("/auth/me", authHandler.GetMe)
+
+		/* Users routes */
+		authGroup.GET("/users", usersHandler.GetUsers)
 
 		/* Dashboard routes */
 		authGroup.GET("/dashboard/kpis", dashboardHandler.GetKPIs)
@@ -108,6 +115,7 @@ func (app *application) routes() http.Handler {
 		authGroup.POST("/projects/:projectID/integrations/github", integrationsHandler.ConnectRepository)
 		authGroup.GET("/projects/:projectID/integrations/github", integrationsHandler.GetProjectIntegration)
 		authGroup.POST("/projects/:projectID/integrations/github/regenerate-secret", integrationsHandler.RegenerateSecret)
+		authGroup.GET("/projects/:projectID/integration-tasks", integrationsHandler.GetProjectIntegrationTasks)
 
 		/* Tasks routes */
 		authGroup.POST("/projects/:projectID/tasks", tasksHandler.CreateTask)

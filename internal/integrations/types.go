@@ -52,6 +52,35 @@ type regenerateSecretResponse struct {
 	WebhookSecret string `json:"webhookSecret"`
 }
 
+type integrationTaskResponse struct {
+	ID             string      `json:"id"`
+	Provider       string      `json:"provider"`
+	ResourceType   string      `json:"resourceType"`
+	ExternalID     string      `json:"externalId"`
+	RepositoryName string      `json:"repositoryName"`
+	IssueNumber    int32       `json:"issueNumber"`
+	Title          string      `json:"title"`
+	Description    pgtype.Text `json:"description"`
+	Status         string      `json:"status"`
+	AssigneeID     pgtype.UUID `json:"assigneeId"`
+	// Payload        []byte             `json:"payload"`
+	ProjectID string             `json:"projectId"`
+	CreatedAt pgtype.Timestamptz `json:"createdAt"`
+	UpdatedAt pgtype.Timestamptz `json:"updatedAt"`
+}
+
+type integrationPaginationResponse struct {
+	Page       int   `json:"page"`
+	PageSize   int   `json:"pageSize"`
+	Total      int64 `json:"total"`
+	TotalPages int   `json:"totalPages"`
+}
+
+type getProjectIntegrationTasksResponse struct {
+	IntegrationTasks []integrationTaskResponse     `json:"integrationTasks"`
+	Pagination       integrationPaginationResponse `json:"pagination"`
+}
+
 type gitHubIssueWebhookPayload struct {
 	Action string `json:"action"`
 
