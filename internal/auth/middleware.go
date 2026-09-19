@@ -4,21 +4,29 @@ import (
 	"strings"
 
 	codeerror "gin-api-1/internal/codeerror"
+
 	"github.com/gin-gonic/gin"
 )
 
 func AuthenticationMiddleware(service Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			codeerror.HandleError(c, codeerror.New(codeerror.MissingToken, "Authorization header is missing"))
-			c.Abort()
-			return
+		token := ""
+		if authHeader != "" {
+			token = strings.TrimPrefix(authHeader, "Bearer ")
+			if token == authHeader {
+				codeerror.HandleError(c, codeerror.New(codeerror.InvalidToken, "Bearer token is invalid"))
+				c.Abort()
+				return
+			}
+		} else {
+			// Browsers cannot set custom headers on WebSocket connections, so
+			// WebSocket clients may authenticate via ?token=<JWT> instead.
+			token = c.Query("token")
 		}
 
-		token := strings.TrimPrefix(authHeader, "Bearer ")
-		if token == authHeader {
-			codeerror.HandleError(c, codeerror.New(codeerror.InvalidToken, "Bearer token is invalid"))
+		if token == "" {
+			codeerror.HandleError(c, codeerror.New(codeerror.MissingToken, "Authorization header is missing"))
 			c.Abort()
 			return
 		}
