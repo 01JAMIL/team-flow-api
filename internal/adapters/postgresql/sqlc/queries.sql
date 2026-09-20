@@ -192,6 +192,36 @@ WHERE (sender_id = $1 AND receiver_id = $2)
 ORDER BY created_at DESC LIMIT $3
 OFFSET $4;
 
+-- name: GetMessageableUsers :many
+WITH user_workspaces AS (
+    SELECT w.id
+    FROM workspaces w
+    WHERE w.user_id = sqlc.arg(logged_user_id)
+       OR EXISTS (SELECT 1
+                  FROM workspace_members wm
+                  WHERE wm.workspace_id = w.id
+                    AND wm.user_id = sqlc.arg(logged_user_id))
+)
+SELECT count(*) OVER () AS total_count,
+       u.id,
+       u.first_name,
+       u.last_name,
+       u.email,
+       u.created_at,
+       u.updated_at
+FROM users u
+WHERE u.id <> sqlc.arg(logged_user_id)
+  AND (EXISTS (SELECT 1
+               FROM workspace_members owm
+               WHERE owm.user_id = u.id
+                 AND owm.workspace_id IN (SELECT id FROM user_workspaces))
+       OR EXISTS (SELECT 1
+                  FROM workspaces ow
+                  WHERE ow.user_id = u.id
+                    AND ow.id IN (SELECT id FROM user_workspaces)))
+ORDER BY u.created_at DESC
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
 -- name: UpdateUserStripeCustomer :one
 UPDATE users
 SET stripe_customer_id = $2

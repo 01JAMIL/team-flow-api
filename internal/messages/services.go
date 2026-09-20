@@ -3,6 +3,7 @@ package messages
 import (
 	"context"
 	repo "gin-api-1/internal/adapters/postgresql/sqlc"
+	"gin-api-1/internal/auth"
 	"gin-api-1/internal/codeerror"
 
 	"github.com/google/uuid"
@@ -13,12 +14,14 @@ import (
 type Service interface {
 	CreateMessage(ctx context.Context, senderID string, payload CreateMessagePayload) (repo.Message, error)
 	GetMessagesBetweenUsers(ctx context.Context, loggedUserID, otherUserID string, page, pageSize int) (getMessagesResponse, error)
+	GetMessageableUsers(ctx context.Context, loggedUserID string, page, pageSize int) (getMessageableUsersResponse, error)
 }
 
 type messagesRepository interface {
 	GetUserById(ctx context.Context, id pgtype.UUID) (repo.User, error)
 	CreateMessage(ctx context.Context, arg repo.CreateMessageParams) (repo.Message, error)
 	GetMessagesBetweenUsers(ctx context.Context, arg repo.GetMessagesBetweenUsersParams) ([]repo.GetMessagesBetweenUsersRow, error)
+	GetMessageableUsers(ctx context.Context, arg repo.GetMessageableUsersParams) ([]repo.GetMessageableUsersRow, error)
 }
 
 type svc struct {
@@ -118,6 +121,50 @@ func (s *svc) GetMessagesBetweenUsers(ctx context.Context, loggedUserID, otherUs
 			PageSize:   pageSize,
 			Total:      total,
 			TotalPages: totalPages,
+		},
+	}, nil
+}
+
+func (s *svc) GetMessageableUsers(ctx context.Context, loggedUserID string, page, pageSize int) (getMessageableUsersResponse, error) {
+	loggedUUID, err := uuid.Parse(loggedUserID)
+	if err != nil {
+		return getMessageableUsersResponse{}, codeerror.New(codeerror.InvalidUUID, "User ID is not a valid UUID")
+	}
+
+	rows, err := s.repo.GetMessageableUsers(ctx, repo.GetMessageableUsersParams{
+		LoggedUserID: pgtype.UUID{Bytes: loggedUUID, Valid: true},
+		PageOffset:   int32((page - 1) * pageSize),
+		PageLimit:    int32(pageSize),
+	})
+	if err != nil {
+		return getMessageableUsersResponse{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to fetch messageable users", err)
+	}
+
+	users := make([]auth.UserResponse, 0, len(rows))
+
+	var total int64
+	if len(rows) > 0 {
+		total = rows[0].TotalCount
+	}
+
+	for _, row := range rows {
+		users = append(users, auth.UserResponse{
+			ID:        row.ID.String(),
+			FirstName: row.FirstName,
+			LastName:  row.LastName,
+			Email:     row.Email,
+			CreatedAt: row.CreatedAt,
+			UpdatedAt: row.UpdatedAt,
+		})
+	}
+
+	return getMessageableUsersResponse{
+		Users: users,
+		Pagination: paginationResponse{
+			Page:       page,
+			PageSize:   pageSize,
+			Total:      total,
+			TotalPages: (int(total) + pageSize - 1) / pageSize,
 		},
 	}, nil
 }

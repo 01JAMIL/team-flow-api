@@ -1,6 +1,9 @@
 package messages
 
-import "time"
+import (
+	"gin-api-1/internal/auth"
+	"time"
+)
 
 const DefaultPageSize = 10
 
@@ -27,4 +30,9 @@ type paginationResponse struct {
 type getMessagesResponse struct {
 	Messages   []MessageResponse  `json:"messages"`
 	Pagination paginationResponse `json:"pagination"`
+}
+
+type getMessageableUsersResponse struct {
+	Users      []auth.UserResponse `json:"users"`
+	Pagination paginationResponse  `json:"pagination"`
 }

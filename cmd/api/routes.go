@@ -125,6 +125,7 @@ func (app *application) routes() http.Handler {
 		authGroup.DELETE("/tasks/:id", tasksHandler.DeleteTask)
 
 		/* Messages routes */
+		authGroup.GET("/messages/users", messagesHandler.GetMessageableUsers)
 		authGroup.GET("/messages/:userId", messagesHandler.GetMessagesBetweenUsers)
 
 		// WebSocket Connection

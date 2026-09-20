@@ -15,6 +15,7 @@ type mockMessagesRepository struct {
 	getUserByIdFunc             func(ctx context.Context, id pgtype.UUID) (repo.User, error)
 	createMessageFunc           func(ctx context.Context, arg repo.CreateMessageParams) (repo.Message, error)
 	getMessagesBetweenUsersFunc func(ctx context.Context, arg repo.GetMessagesBetweenUsersParams) ([]repo.GetMessagesBetweenUsersRow, error)
+	getMessageableUsersFunc     func(ctx context.Context, arg repo.GetMessageableUsersParams) ([]repo.GetMessageableUsersRow, error)
 }
 
 func (m *mockMessagesRepository) GetUserById(ctx context.Context, id pgtype.UUID) (repo.User, error) {
@@ -27,6 +28,10 @@ func (m *mockMessagesRepository) CreateMessage(ctx context.Context, arg repo.Cre
 
 func (m *mockMessagesRepository) GetMessagesBetweenUsers(ctx context.Context, arg repo.GetMessagesBetweenUsersParams) ([]repo.GetMessagesBetweenUsersRow, error) {
 	return m.getMessagesBetweenUsersFunc(ctx, arg)
+}
+
+func (m *mockMessagesRepository) GetMessageableUsers(ctx context.Context, arg repo.GetMessageableUsersParams) ([]repo.GetMessageableUsersRow, error) {
+	return m.getMessageableUsersFunc(ctx, arg)
 }
 
 func newTestMessage(id, senderID, receiverID uuid.UUID, content string) repo.Message {
@@ -382,6 +387,128 @@ func TestGetMessagesBetweenUsers(t *testing.T) {
 
 			if result.Pagination.TotalPages != tt.wantTotalPages {
 				t.Errorf("total pages = %d, want %d", result.Pagination.TotalPages, tt.wantTotalPages)
+			}
+		})
+	}
+}
+
+func TestGetMessageableUsers(t *testing.T) {
+	ctx := context.Background()
+	loggedUserID := uuid.New()
+	otherUserID := uuid.New()
+
+	otherUser := repo.GetMessageableUsersRow{
+		TotalCount: 1,
+		ID:         pgtype.UUID{Bytes: otherUserID, Valid: true},
+		FirstName:  "Jane",
+		LastName:   "Doe",
+		Email:      "jane@example.com",
+		CreatedAt:  pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		UpdatedAt:  pgtype.Timestamptz{Time: time.Now(), Valid: true},
+	}
+
+	tests := []struct {
+		name      string
+		userID    string
+		repo      *mockMessagesRepository
+		wantErr   bool
+		wantLen   int
+		wantPages int
+	}{
+		{
+			name:   "success",
+			userID: loggedUserID.String(),
+			repo: &mockMessagesRepository{
+				getMessageableUsersFunc: func(ctx context.Context, arg repo.GetMessageableUsersParams) ([]repo.GetMessageableUsersRow, error) {
+					if arg.LoggedUserID.Bytes != loggedUserID {
+						t.Errorf("logged user ID = %v, want %v", arg.LoggedUserID.Bytes, loggedUserID)
+					}
+					return []repo.GetMessageableUsersRow{otherUser}, nil
+				},
+			},
+			wantErr:   false,
+			wantLen:   1,
+			wantPages: 1,
+		},
+		{
+			name:   "invalid uuid",
+			userID: "not-a-uuid",
+			repo: &mockMessagesRepository{
+				getMessageableUsersFunc: func(ctx context.Context, arg repo.GetMessageableUsersParams) ([]repo.GetMessageableUsersRow, error) {
+					t.Fatal("repo should not be called for an invalid UUID")
+					return nil, nil
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name:   "empty result",
+			userID: loggedUserID.String(),
+			repo: &mockMessagesRepository{
+				getMessageableUsersFunc: func(ctx context.Context, arg repo.GetMessageableUsersParams) ([]repo.GetMessageableUsersRow, error) {
+					return []repo.GetMessageableUsersRow{}, nil
+				},
+			},
+			wantErr:   false,
+			wantLen:   0,
+			wantPages: 0,
+		},
+		{
+			name:   "calculates total pages",
+			userID: loggedUserID.String(),
+			repo: &mockMessagesRepository{
+				getMessageableUsersFunc: func(ctx context.Context, arg repo.GetMessageableUsersParams) ([]repo.GetMessageableUsersRow, error) {
+					return []repo.GetMessageableUsersRow{otherUser}, nil
+				},
+			},
+			wantErr:   false,
+			wantLen:   1,
+			wantPages: 1,
+		},
+		{
+			name:   "repo failure",
+			userID: loggedUserID.String(),
+			repo: &mockMessagesRepository{
+				getMessageableUsersFunc: func(ctx context.Context, arg repo.GetMessageableUsersParams) ([]repo.GetMessageableUsersRow, error) {
+					return nil, pgx.ErrTxClosed
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := &svc{repo: tt.repo}
+			result, err := service.GetMessageableUsers(ctx, tt.userID, 1, 10)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if len(result.Users) != tt.wantLen {
+				t.Errorf("users count = %d, want %d", len(result.Users), tt.wantLen)
+			}
+
+			if tt.wantLen > 0 {
+				if result.Users[0].ID != otherUserID.String() {
+					t.Errorf("user ID = %s, want %s", result.Users[0].ID, otherUserID)
+				}
+			}
+
+			if result.Pagination.Page != 1 || result.Pagination.PageSize != 10 {
+				t.Errorf("pagination = %+v, want page=1 pageSize=10", result.Pagination)
+			}
+
+			if result.Pagination.TotalPages != tt.wantPages {
+				t.Errorf("total pages = %d, want %d", result.Pagination.TotalPages, tt.wantPages)
 			}
 		})
 	}

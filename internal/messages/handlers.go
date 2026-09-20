@@ -64,3 +64,25 @@ func (h *handler) GetMessagesBetweenUsers(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 }
+
+func (h *handler) GetMessageableUsers(c *gin.Context) {
+	loggedUser := c.MustGet("user").(auth.UserResponse)
+
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	pageSize, err := strconv.Atoi(c.DefaultQuery("pageSize", strconv.Itoa(DefaultPageSize)))
+	if err != nil || pageSize < 1 {
+		pageSize = DefaultPageSize
+	}
+
+	response, err := h.service.GetMessageableUsers(c, loggedUser.ID, page, pageSize)
+	if err != nil {
+		codeerror.HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
+}
