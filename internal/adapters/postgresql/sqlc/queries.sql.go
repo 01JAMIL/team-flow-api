@@ -506,6 +506,81 @@ func (q *Queries) GetMemberFromWorkspace(ctx context.Context, arg GetMemberFromW
 	return i, err
 }
 
+const getMessageableUsers = `-- name: GetMessageableUsers :many
+WITH user_workspaces AS (
+    SELECT w.id
+    FROM workspaces w
+    WHERE w.user_id = $1
+       OR EXISTS (SELECT 1
+                  FROM workspace_members wm
+                  WHERE wm.workspace_id = w.id
+                    AND wm.user_id = $1)
+)
+SELECT count(*) OVER () AS total_count,
+       u.id,
+       u.first_name,
+       u.last_name,
+       u.email,
+       u.created_at,
+       u.updated_at
+FROM users u
+WHERE u.id <> $1
+  AND (EXISTS (SELECT 1
+               FROM workspace_members owm
+               WHERE owm.user_id = u.id
+                 AND owm.workspace_id IN (SELECT id FROM user_workspaces))
+       OR EXISTS (SELECT 1
+                  FROM workspaces ow
+                  WHERE ow.user_id = u.id
+                    AND ow.id IN (SELECT id FROM user_workspaces)))
+ORDER BY u.created_at DESC
+LIMIT $3 OFFSET $2
+`
+
+type GetMessageableUsersParams struct {
+	LoggedUserID pgtype.UUID `json:"logged_user_id"`
+	PageOffset   int32       `json:"page_offset"`
+	PageLimit    int32       `json:"page_limit"`
+}
+
+type GetMessageableUsersRow struct {
+	TotalCount int64              `json:"total_count"`
+	ID         pgtype.UUID        `json:"id"`
+	FirstName  string             `json:"first_name"`
+	LastName   string             `json:"last_name"`
+	Email      string             `json:"email"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetMessageableUsers(ctx context.Context, arg GetMessageableUsersParams) ([]GetMessageableUsersRow, error) {
+	rows, err := q.db.Query(ctx, getMessageableUsers, arg.LoggedUserID, arg.PageOffset, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetMessageableUsersRow
+	for rows.Next() {
+		var i GetMessageableUsersRow
+		if err := rows.Scan(
+			&i.TotalCount,
+			&i.ID,
+			&i.FirstName,
+			&i.LastName,
+			&i.Email,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getMessagesBetweenUsers = `-- name: GetMessagesBetweenUsers :many
 SELECT count(*) OVER () AS total_count, id,
        sender_id,
