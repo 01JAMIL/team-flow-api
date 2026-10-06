@@ -13,10 +13,12 @@ import (
 
 type Service interface {
 	GetUsers(ctx context.Context, excludedUserID, search string, page, pageSize int) (getUsersResponse, error)
+	UpdateUserProfile(ctx context.Context, userID string, payload updateUserProfilePayload) (auth.UserResponse, error)
 }
 
 type usersRepository interface {
 	GetUsers(ctx context.Context, arg repo.GetUsersParams) ([]repo.GetUsersRow, error)
+	UpdateUserProfile(ctx context.Context, arg repo.UpdateUserProfileParams) (repo.User, error)
 }
 
 type svc struct {
@@ -74,4 +76,41 @@ func (s *svc) GetUsers(ctx context.Context, excludedUserID, search string, page,
 			TotalPages: (int(total) + pageSize - 1) / pageSize,
 		},
 	}, nil
+}
+
+func (s *svc) UpdateUserProfile(ctx context.Context, userID string, payload updateUserProfilePayload) (auth.UserResponse, error) {
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return auth.UserResponse{}, codeerror.New(codeerror.InvalidUUID, "User ID is not a valid UUID")
+	}
+
+	user, err := s.repo.UpdateUserProfile(ctx, repo.UpdateUserProfileParams{
+		ID:        pgtype.UUID{Bytes: userUUID, Valid: true},
+		FirstName: textPtr(payload.FirstName),
+		LastName:  textPtr(payload.LastName),
+	})
+	if err != nil {
+		return auth.UserResponse{}, codeerror.Wrap(codeerror.StatusInternalServerError, "Failed to update user profile", err)
+	}
+
+	return toUserResponse(user), nil
+}
+
+func textPtr(value *string) pgtype.Text {
+	if value == nil {
+		return pgtype.Text{}
+	}
+
+	return pgtype.Text{String: *value, Valid: true}
+}
+
+func toUserResponse(user repo.User) auth.UserResponse {
+	return auth.UserResponse{
+		ID:        user.ID.String(),
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
 }

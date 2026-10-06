@@ -56,6 +56,7 @@ type Querier interface {
 	UpdateProjectIntegrationWebhookSecret(ctx context.Context, arg UpdateProjectIntegrationWebhookSecretParams) (ProjectIntegration, error)
 	UpdateSubscription(ctx context.Context, arg UpdateSubscriptionParams) (Subscription, error)
 	UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, error)
+	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	UpdateUserStripeCustomer(ctx context.Context, arg UpdateUserStripeCustomerParams) (User, error)
 	UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) (Workspace, error)
 }
