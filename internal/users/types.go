@@ -13,3 +13,8 @@ type getUsersResponse struct {
 	Users      []auth.UserResponse `json:"users"`
 	Pagination paginationResponse  `json:"pagination"`
 }
+
+type updateUserProfilePayload struct {
+	FirstName *string `json:"firstName,omitempty" binding:"omitempty,min=1,max=255"`
+	LastName  *string `json:"lastName,omitempty" binding:"omitempty,min=1,max=255"`
+}

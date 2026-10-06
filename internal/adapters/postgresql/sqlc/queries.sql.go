@@ -1624,6 +1624,36 @@ func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, e
 	return i, err
 }
 
+const updateUserProfile = `-- name: UpdateUserProfile :one
+UPDATE users
+SET first_name = COALESCE($1, first_name),
+    last_name  = COALESCE($2, last_name),
+    updated_at = now()
+WHERE id = $3 RETURNING id, first_name, last_name, email, password, created_at, updated_at, stripe_customer_id
+`
+
+type UpdateUserProfileParams struct {
+	FirstName pgtype.Text `json:"first_name"`
+	LastName  pgtype.Text `json:"last_name"`
+	ID        pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserProfile, arg.FirstName, arg.LastName, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.Email,
+		&i.Password,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.StripeCustomerID,
+	)
+	return i, err
+}
+
 const updateUserStripeCustomer = `-- name: UpdateUserStripeCustomer :one
 UPDATE users
 SET stripe_customer_id = $2

@@ -227,6 +227,13 @@ UPDATE users
 SET stripe_customer_id = $2
 WHERE id = $1 RETURNING *;
 
+-- name: UpdateUserProfile :one
+UPDATE users
+SET first_name = COALESCE(sqlc.narg('first_name'), first_name),
+    last_name  = COALESCE(sqlc.narg('last_name'), last_name),
+    updated_at = now()
+WHERE id = sqlc.arg(id) RETURNING *;
+
 -- name: CreateSubscription :one
 INSERT INTO subscriptions (id,
                            user_id,
