@@ -1,8 +1,10 @@
 package users
 
 import (
+	"errors"
 	"gin-api-1/internal/auth"
 	"gin-api-1/internal/codeerror"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -43,4 +45,25 @@ func (h *handler) GetUsers(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func (h *handler) UpdateUserProfile(c *gin.Context) {
+	loggedUser := c.MustGet("user").(auth.UserResponse)
+
+	var payload updateUserProfilePayload
+	if err := c.ShouldBindJSON(&payload); err != nil && !errors.Is(err, io.EOF) {
+		codeerror.HandleError(c, codeerror.NewBindingError(err))
+		return
+	}
+
+	user, err := h.service.UpdateUserProfile(c, loggedUser.ID, payload)
+	if err != nil {
+		codeerror.HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Profile updated successfully",
+		"user":    user,
+	})
 }

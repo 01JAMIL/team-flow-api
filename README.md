@@ -270,6 +270,27 @@ Response `200` has the same `{ "message", "user": { "user", "token" } }` shape.
 { "message": "User retrieved successfully", "user": { "id": "...", "firstName": "Jamil", ... } }
 ```
 
+### Users
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/users` | List other users (paginated, `?search=`) |
+| `PATCH` | `/users/me` | Update the logged-in user's first/last name (body optional) |
+
+#### Update profile — `PATCH /users/me`
+
+Both fields are optional (partial update); omitted fields keep their current value. The body may be omitted entirely.
+
+```json
+{ "firstName": "Jamil", "lastName": "Ben" }
+```
+
+Response `200`:
+
+```json
+{ "message": "Profile updated successfully", "user": { "id": "...", "firstName": "Jamil", "lastName": "Ben", "email": "...", "createdAt": "...", "updatedAt": "..." } }
+```
+
 ### Workspaces
 
 | Method | Path | Description |

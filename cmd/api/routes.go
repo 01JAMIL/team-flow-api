@@ -84,6 +84,7 @@ func (app *application) routes() http.Handler {
 
 		/* Users routes */
 		authGroup.GET("/users", usersHandler.GetUsers)
+		authGroup.PATCH("/users/me", usersHandler.UpdateUserProfile)
 
 		/* Dashboard routes */
 		authGroup.GET("/dashboard/kpis", dashboardHandler.GetKPIs)
